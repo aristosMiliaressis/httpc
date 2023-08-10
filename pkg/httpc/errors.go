@@ -14,11 +14,11 @@ const (
 	ConnectionReset
 	TlsNegotiationFailure
 	DnsError
-	UnknownError TransportError = 99
+	UnknownError
 )
 
 func (e TransportError) String() string {
-	return []string{"NoError", "DnsError", "TlsNegotiationFailure", "ConnectionReset", "Timeout", "UnknownError"}[e]
+	return []string{"NoError", "Timeout", "ConnectionReset", "TlsNegotiationFailure", "DnsError", "UnknownError"}[e]
 }
 
 // TODO: use replay cache for banned requests

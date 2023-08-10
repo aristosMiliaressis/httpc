@@ -29,8 +29,8 @@ type HttpClient struct {
 	apiGateways map[string]*iprotate.ApiEndpoint
 }
 
-func NewHttpClient(opts HttpOptions) HttpClient {
-	ctx, cancel := context.WithCancel(context.Background())
+func NewHttpClient(opts HttpOptions, ctx context.Context) HttpClient {
+	ctx, cancel := context.WithCancel(ctx)
 
 	return HttpClient{
 		context:  ctx,

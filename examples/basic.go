@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -10,7 +11,7 @@ import (
 func main() {
 	opts := httpc.DefaultOptions
 
-	client := httpc.NewHttpClient(opts)
+	client := httpc.NewHttpClient(opts, context.Background())
 
 	evt := client.SendRaw("GET https://example.com HTTP/1.1\r\nHost: google.com\r\n\r\n", "http://127.0.0.1:5000")
 	fmt.Println(evt.TransportError)

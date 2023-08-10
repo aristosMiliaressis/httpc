@@ -3,31 +3,46 @@ package httpc
 import (
 	"context"
 	"crypto/tls"
-	"errors"
+	"fmt"
 	"math/rand"
 	"net"
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
 	"os"
-	"syscall"
+	"sync"
 	"time"
 
+	"github.com/aristosMiliaressis/go-ip-rotate/pkg/iprotate"
 	"github.com/projectdiscovery/rawhttp"
 )
 
 type HttpClient struct {
-	context  context.Context
-	cancel   context.CancelFunc
-	client   http.Client
-	options  HttpOptions
-	Rate     *RateThrottle
-	EventLog []*HttpEvent
+	context     context.Context
+	cancel      context.CancelFunc
+	client      http.Client
+	Options     HttpOptions
+	Rate        *RateThrottle
+	EventLog    EventLog
+	errorLog    map[string]int
+	errorMutex  sync.Mutex
+	apiGateways map[string]*iprotate.ApiEndpoint
 }
 
 func NewHttpClient(opts HttpOptions) HttpClient {
 	ctx, cancel := context.WithCancel(context.Background())
 
+	return HttpClient{
+		context:  ctx,
+		cancel:   cancel,
+		Options:  opts,
+		Rate:     newRateThrottle(0),
+		client:   createInternalHttpClient(opts),
+		errorLog: map[string]int{},
+	}
+}
+
+func createInternalHttpClient(opts HttpOptions) http.Client {
 	proxyURL := http.ProxyFromEnvironment
 	if len(opts.ProxyUrl) > 0 {
 		pu, err := url.Parse(opts.ProxyUrl)
@@ -36,51 +51,58 @@ func NewHttpClient(opts HttpOptions) HttpClient {
 		}
 	}
 
-	return HttpClient{
-		context: ctx,
-		cancel:  cancel,
-		options: opts,
-		Rate:    newRateThrottle(0),
-		client: http.Client{
-			CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse },
-			Timeout:       time.Duration(time.Duration(opts.Timeout) * time.Second),
-			Transport: &http.Transport{
-				Proxy:               proxyURL,
-				ForceAttemptHTTP2:   false,
-				DisableCompression:  true,
-				TLSNextProto:        map[string]func(string, *tls.Conn) http.RoundTripper{},
-				MaxIdleConns:        1000,
-				MaxIdleConnsPerHost: 500,
-				MaxConnsPerHost:     500,
-				DialContext: (&net.Dialer{
-					Timeout: time.Duration(time.Duration(opts.Timeout) * time.Second),
-				}).DialContext,
-				TLSHandshakeTimeout: time.Duration(time.Duration(opts.Timeout) * time.Second),
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: true,
-					MinVersion:         tls.VersionSSL30,
-					//Renegotiation:      tls.RenegotiateOnceAsClient,
-					//ServerName: sni,
-				},
+	os.Setenv("GODEBUG", "http2client=0")
+	return http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse },
+		Timeout:       time.Duration(time.Duration(opts.Timeout) * time.Second),
+		Transport: &http.Transport{
+			Proxy:               proxyURL,
+			ForceAttemptHTTP2:   false,
+			DisableCompression:  true,
+			TLSNextProto:        map[string]func(string, *tls.Conn) http.RoundTripper{},
+			MaxIdleConns:        1000,
+			MaxIdleConnsPerHost: 500,
+			MaxConnsPerHost:     500,
+			DialContext: (&net.Dialer{
+				Timeout: time.Duration(time.Duration(opts.Timeout) * time.Second),
+			}).DialContext,
+			TLSHandshakeTimeout: time.Duration(time.Duration(opts.Timeout) * time.Second),
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+				MinVersion:         tls.VersionSSL30,
+				//Renegotiation:      tls.RenegotiateOnceAsClient,
+				ServerName: opts.SNI,
 			},
 		},
 	}
 }
 
 func (c *HttpClient) Send(req *http.Request) HttpEvent {
-	return c.SendWithOptions(req, c.options)
+	return c.SendWithOptions(req, &c.Options)
 }
 
-func (c *HttpClient) SendWithOptions(req *http.Request, opts HttpOptions) HttpEvent {
+func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpEvent {
 
 	c.sleepIfNeeded(opts.Delay)
 
+	if req.Method == "CONNECT" {
+		return c.ConnectRequest(req, opts)
+	}
+
 	evt := HttpEvent{
-		Request: req,
+		Request: req.Clone(c.context),
 	}
 
 	if evt.Request.Header["User-Agent"] == nil {
 		evt.Request.Header.Add("User-Agent", opts.DefaultUserAgent)
+	}
+
+	for k, v := range c.Options.DefaultHeaders {
+		evt.Request.Header.Set(k, v)
+	}
+
+	for k, v := range req.Header {
+		evt.Request.Header.Set(k, v[0])
 	}
 
 	opts.CacheBusting.apply(evt.Request)
@@ -100,17 +122,16 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts HttpOptions) HttpEv
 	evt.Request = evt.Request.WithContext(httptrace.WithClientTrace(c.context, trace))
 
 	var err error
-	evt.Response, err = c.client.Do(evt.Request)
-	if err != nil {
-		if os.IsTimeout(err) {
-			evt.TransportError = Timeout
-		} else if errors.Is(err, syscall.ECONNRESET) {
-			evt.TransportError = ConnectionReset
-		} else {
-			// TODO: handle all errors
-		}
+	if opts.SNI != "" {
+		sniClient := createInternalHttpClient(*opts)
 
-		return evt
+		evt.Response, err = sniClient.Do(evt.Request)
+	} else {
+		evt.Response, err = c.client.Do(evt.Request)
+	}
+
+	if err != nil {
+		return c.handleError(evt, err)
 	}
 
 	if evt.Response.StatusCode >= 300 && evt.Response.StatusCode <= 399 {
@@ -132,32 +153,39 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts HttpOptions) HttpEv
 			return evt
 		}
 
-		if !opts.FollowRedirects {
-			return evt
-		}
-
-		if evt.RedirectDepth() > opts.MaxRedirects {
+		opts.currentDepth++
+		if opts.currentDepth > opts.MaxRedirects {
 			evt.MaxRedirectsExheeded = true
 			return evt
 		}
 
-		redirectedReq := evt.Request.Clone(c.context)
+		if !opts.FollowRedirects {
+			return evt
+		}
+
+		redirectedReq := req.Clone(c.context)
+		absRedirectUrl, _ := url.Parse(absRedirect)
+		redirectedReq.Host = absRedirectUrl.Host
 		redirectedReq.URL, _ = url.Parse(absRedirect)
 
-		newEvt := c.Send(redirectedReq)
-		newEvt.Prev = &evt
+		newEvt := c.SendWithOptions(redirectedReq, opts)
+		newEvt.AddRedirect(&evt)
 
 		return newEvt
 	}
 
 	if evt.Response.StatusCode == 429 {
+		fmt.Println("Status == 429")
 		if opts.AutoRateThrottle {
 			opts.Delay.Max += 0.1
+			opts.Delay.Min = opts.Delay.Max - 0.1
 		}
 
 		if opts.ReplayRateLimitted {
+			fmt.Println("ReplayRateLimitted")
+
 			replayReq := evt.Request.Clone(c.context)
-			evt = c.Send(replayReq)
+			evt = c.SendWithOptions(replayReq, opts)
 		}
 
 		evt.RateLimited = true
@@ -166,15 +194,15 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts HttpOptions) HttpEv
 	return evt
 }
 
-func (c *HttpClient) SendRaw(rawreq string, baseUrl string, scheme string) HttpEvent {
+func (c *HttpClient) SendRaw(rawreq string, baseUrl string) HttpEvent {
 	rawhttpOptions := rawhttp.Options{
-		Timeout:                time.Duration(c.options.Timeout * 1000),
+		Timeout:                time.Duration(c.Options.Timeout * 1000),
 		AutomaticHostHeader:    false,
 		AutomaticContentLength: false,
 		CustomRawBytes:         []byte(rawreq),
-		FollowRedirects:        c.options.FollowRedirects,
-		MaxRedirects:           c.options.MaxRedirects,
-		Proxy:                  c.options.ProxyUrl,
+		FollowRedirects:        c.Options.FollowRedirects,
+		MaxRedirects:           c.Options.MaxRedirects,
+		Proxy:                  c.Options.ProxyUrl,
 		//SNI
 	}
 	httpclient := rawhttp.NewClient(&rawhttpOptions)
@@ -193,7 +221,7 @@ func (c *HttpClient) SendRaw(rawreq string, baseUrl string, scheme string) HttpE
 func (c *HttpClient) sleepIfNeeded(delay Range) {
 
 	sTime := delay.Min + rand.Float64()*(delay.Max-delay.Min)
-	sleepDuration := time.Duration(sTime * 1000)
+	sleepDuration, _ := time.ParseDuration(fmt.Sprintf("%dms", int(sTime*1000)))
 
 	select {
 	case <-c.context.Done():
@@ -214,4 +242,8 @@ func GetRedirectLocation(resp *http.Response) string {
 	}
 
 	return ToAbsolute(resp.Request.URL.String(), redirectLocation)
+}
+
+func (c *HttpClient) ConnectRequest(req *http.Request, opts *HttpOptions) HttpEvent {
+	return HttpEvent{}
 }

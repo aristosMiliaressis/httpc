@@ -24,6 +24,6 @@ HTTP Client Library for security tooling
 
 - [x] configurable cache busting with support for query & headers
 
-- [ ] Raw http requests
-- [ ] SNI injection      
+- [x] Raw http requests
+- [x] SNI injection      
 - [ ] CONNECT method support

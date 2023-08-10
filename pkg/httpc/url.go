@@ -39,3 +39,8 @@ func ToAbsolute(src string, target string) string {
 
 	return target
 }
+
+func GetBaseUrl(url *url.URL) *url.URL {
+	baseUrl, _ := url.Parse(url.Scheme + "://" + url.Host)
+	return baseUrl
+}

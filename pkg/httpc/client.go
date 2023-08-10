@@ -130,6 +130,8 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 		evt.Response, err = c.client.Do(evt.Request)
 	}
 
+	c.EventLog = append(c.EventLog, &evt)
+
 	if err != nil {
 		return c.handleError(evt, err)
 	}
@@ -171,6 +173,8 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 		newEvt := c.SendWithOptions(redirectedReq, opts)
 		newEvt.AddRedirect(&evt)
 
+		c.EventLog = append(c.EventLog, &newEvt)
+
 		return newEvt
 	}
 
@@ -190,6 +194,8 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 
 		evt.RateLimited = true
 	}
+
+	c.EventLog = append(c.EventLog, &evt)
 
 	return evt
 }
@@ -214,6 +220,8 @@ func (c *HttpClient) SendRaw(rawreq string, baseUrl string) HttpEvent {
 	if err != nil {
 		// TODO: handle errors
 	}
+
+	c.EventLog = append(c.EventLog, &evt)
 
 	return evt
 }
@@ -245,5 +253,9 @@ func GetRedirectLocation(resp *http.Response) string {
 }
 
 func (c *HttpClient) ConnectRequest(req *http.Request, opts *HttpOptions) HttpEvent {
-	return HttpEvent{}
+	evt := HttpEvent{}
+
+	c.EventLog = append(c.EventLog, &evt)
+
+	return evt
 }

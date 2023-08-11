@@ -17,6 +17,7 @@ type HttpOptions struct {
 	IpBanDetectionThreshold     int
 	IpRotateOnIpBan             bool
 	currentDepth                int
+	DebugLogging                bool
 }
 
 var DefaultOptions = HttpOptions{

@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/aristosMiliaressis/go-ip-rotate/pkg/iprotate"
+	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/gologger/levels"
 	"github.com/projectdiscovery/rawhttp"
 )
 
@@ -49,6 +51,11 @@ func createInternalHttpClient(opts HttpOptions) http.Client {
 		if err == nil {
 			proxyURL = http.ProxyURL(pu)
 		}
+	}
+
+	gologger.DefaultLogger.SetMaxLevel(levels.LevelVerbose)
+	if !opts.DebugLogging {
+		gologger.DefaultLogger.SetMaxLevel(levels.LevelWarning)
 	}
 
 	os.Setenv("GODEBUG", "http2client=0")
@@ -130,6 +137,12 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 		evt.Response, err = c.client.Do(evt.Request)
 	}
 
+	if evt.TransportError != NoError {
+		gologger.Debug().Msgf("%s %s\n", evt.Request.URL.String(), evt.TransportError)
+	} else {
+		gologger.Debug().Msgf("%s %s\n", evt.Request.URL.String(), evt.Response.Status)
+	}
+
 	c.EventLog = append(c.EventLog, &evt)
 
 	if err != nil {
@@ -179,15 +192,12 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 	}
 
 	if evt.Response.StatusCode == 429 {
-		fmt.Println("Status == 429")
 		if opts.AutoRateThrottle {
 			opts.Delay.Max += 0.1
 			opts.Delay.Min = opts.Delay.Max - 0.1
 		}
 
 		if opts.ReplayRateLimitted {
-			fmt.Println("ReplayRateLimitted")
-
 			replayReq := evt.Request.Clone(c.context)
 			evt = c.SendWithOptions(replayReq, opts)
 		}

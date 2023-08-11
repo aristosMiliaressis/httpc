@@ -36,6 +36,7 @@ func (c *HttpClient) handleError(evt HttpEvent, err error) HttpEvent {
 		evt.TransportError = ConnectionReset
 		errorCount = c.errorLog[ConnectionReset.String()] + 1
 	} else {
+		gologger.Error().Msg(err.Error())
 		evt.TransportError = UnknownError
 		errorCount = c.errorLog[UnknownError.String()] + 1
 	}

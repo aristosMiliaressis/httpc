@@ -63,10 +63,10 @@ func createInternalHttpClient(opts HttpOptions) http.Client {
 		CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse },
 		Timeout:       time.Duration(time.Duration(opts.Timeout) * time.Second),
 		Transport: &http.Transport{
-			Proxy:               proxyURL,
-			ForceAttemptHTTP2:   false,
-			DisableCompression:  true,
-			TLSNextProto:        map[string]func(string, *tls.Conn) http.RoundTripper{},
+			Proxy:             proxyURL,
+			ForceAttemptHTTP2: false,
+			//DisableCompression:  true,
+			//TLSNextProto:        map[string]func(string, *tls.Conn) http.RoundTripper{},
 			MaxIdleConns:        1000,
 			MaxIdleConnsPerHost: 500,
 			MaxConnsPerHost:     500,
@@ -77,8 +77,8 @@ func createInternalHttpClient(opts HttpOptions) http.Client {
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,
 				MinVersion:         tls.VersionSSL30,
-				//Renegotiation:      tls.RenegotiateOnceAsClient,
-				ServerName: opts.SNI,
+				Renegotiation:      tls.RenegotiateOnceAsClient,
+				ServerName:         opts.SNI,
 			},
 		},
 	}

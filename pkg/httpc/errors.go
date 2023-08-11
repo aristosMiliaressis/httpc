@@ -37,7 +37,7 @@ func (c *HttpClient) handleError(evt HttpEvent, err error) HttpEvent {
 		evt.TransportError = ConnectionReset
 		errorCount = c.errorLog[ConnectionReset.String()] + 1
 	} else if strings.Contains(err.Error(), "invalid header field name") {
-		//
+		evt.TransportError = UnknownError
 	} else {
 		gologger.Error().Msg(err.Error())
 		evt.TransportError = UnknownError

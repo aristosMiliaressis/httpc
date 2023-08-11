@@ -3,6 +3,7 @@ package httpc
 import (
 	"errors"
 	"os"
+	"strings"
 	"syscall"
 
 	"github.com/projectdiscovery/gologger"
@@ -35,6 +36,8 @@ func (c *HttpClient) handleError(evt HttpEvent, err error) HttpEvent {
 	} else if errors.Is(err, syscall.ECONNRESET) {
 		evt.TransportError = ConnectionReset
 		errorCount = c.errorLog[ConnectionReset.String()] + 1
+	} else if strings.Contains(err.Error(), "invalid header field name") {
+		//
 	} else {
 		gologger.Error().Msg(err.Error())
 		evt.TransportError = UnknownError

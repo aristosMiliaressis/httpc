@@ -137,10 +137,10 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 		evt.Response, err = c.client.Do(evt.Request)
 	}
 
-	if evt.TransportError != NoError {
-		gologger.Debug().Msgf("%s %s\n", evt.Request.URL.String(), evt.TransportError)
-	} else {
+	if evt.Response != nil {
 		gologger.Debug().Msgf("%s %s\n", evt.Request.URL.String(), evt.Response.Status)
+	} else {
+		gologger.Debug().Msgf("%s %s\n", evt.Request.URL.String(), evt.TransportError)
 	}
 
 	c.EventLog = append(c.EventLog, &evt)

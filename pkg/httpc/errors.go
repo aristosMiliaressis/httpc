@@ -4,6 +4,8 @@ import (
 	"errors"
 	"os"
 	"syscall"
+
+	"github.com/projectdiscovery/gologger"
 )
 
 type TransportError int
@@ -43,6 +45,8 @@ func (c *HttpClient) handleError(evt HttpEvent, err error) HttpEvent {
 	if errorCount >= c.Options.IpBanDetectionThreshold {
 		err = c.verifyIpBan(evt)
 	}
+
+	gologger.Debug().Msgf("%s %s\n", evt.Request.URL.String(), evt.TransportError)
 
 	return evt
 }

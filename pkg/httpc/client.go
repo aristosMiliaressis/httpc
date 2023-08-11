@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
+	"os"
 	"sync"
 	"time"
 
@@ -57,12 +58,13 @@ func createInternalHttpClient(opts HttpOptions) http.Client {
 		gologger.DefaultLogger.SetMaxLevel(levels.LevelWarning)
 	}
 
+	os.Setenv("GODEBUG", "http2client=0")
 	return http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse },
 		Timeout:       time.Duration(time.Duration(opts.Timeout) * time.Second),
 		Transport: &http.Transport{
 			Proxy:               proxyURL,
-			ForceAttemptHTTP2:   true,
+			ForceAttemptHTTP2:   false,
 			DisableCompression:  true,
 			MaxIdleConns:        1000,
 			MaxIdleConnsPerHost: 500,

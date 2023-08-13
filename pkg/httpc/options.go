@@ -5,6 +5,7 @@ type HttpOptions struct {
 	DefaultHeaders              map[string]string
 	ProxyUrl                    string
 	Timeout                     int
+	MaintainCookieJar           bool
 	FollowRedirects             bool
 	MaxRedirects                int
 	PreventCrossSiteRedirects   bool
@@ -24,6 +25,7 @@ var DefaultOptions = HttpOptions{
 	DefaultUserAgent:          "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1",
 	DefaultHeaders:            map[string]string{},
 	Timeout:                   15,
+	MaintainCookieJar:         true,
 	FollowRedirects:           true,
 	PreventCrossSiteRedirects: true,
 	MaxRedirects:              20,

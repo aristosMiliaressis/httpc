@@ -29,6 +29,7 @@ type HttpClient struct {
 	errorLog    map[string]int
 	errorMutex  sync.Mutex
 	apiGateways map[string]*iprotate.ApiEndpoint
+	CookieJar   map[string]string
 }
 
 func NewHttpClient(opts HttpOptions, ctx context.Context) HttpClient {
@@ -111,6 +112,10 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 		evt.Request.Header.Set(k, v[0])
 	}
 
+	for k, v := range c.CookieJar {
+		evt.Request.AddCookie(&http.Cookie{Name: k, Value: v})
+	}
+
 	opts.CacheBusting.apply(evt.Request)
 
 	var start time.Time
@@ -143,6 +148,12 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 	}
 
 	gologger.Debug().Msgf("%s %s\n", evt.Request.URL.String(), evt.Response.Status)
+
+	if c.Options.MaintainCookieJar && evt.Response.Cookies() != nil {
+		for _, cookie := range evt.Response.Cookies() {
+			c.CookieJar[cookie.Name] = cookie.Value
+		}
+	}
 
 	if evt.Response.StatusCode >= 300 && evt.Response.StatusCode <= 399 {
 		absRedirect := GetRedirectLocation(evt.Response)

@@ -6,6 +6,9 @@ HTTP Client Library for security tooling
 ## Features
 
 - [x] contextual information regarding http responses (request/response,timming,redirect chain, transport errors)
+- [x] support for automatic handling of cookies
+- [ ] implement cookie scope handling
+- [ ] implement cookie expiration handling
 
 - [x] max redirect support
 - [x] redirect loop detection

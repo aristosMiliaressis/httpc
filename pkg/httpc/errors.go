@@ -33,7 +33,7 @@ func (c *HttpClient) handleError(evt HttpEvent, err error) HttpEvent {
 	if os.IsTimeout(err) || errors.Is(err, syscall.ETIME) || errors.Is(err, syscall.ETIMEDOUT) {
 		evt.TransportError = Timeout
 		errorCount = c.errorLog[Timeout.String()] + 1
-	} else if errors.Is(err, syscall.ECONNRESET) {
+	} else if errors.Is(err, syscall.ECONNRESET) || strings.Contains(err.Error(), "An existing connection was forcibly closed") {
 		evt.TransportError = ConnectionReset
 		errorCount = c.errorLog[ConnectionReset.String()] + 1
 	} else if strings.Contains(err.Error(), "invalid header field name") {

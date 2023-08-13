@@ -36,12 +36,13 @@ func NewHttpClient(opts HttpOptions, ctx context.Context) HttpClient {
 	ctx, cancel := context.WithCancel(ctx)
 
 	return HttpClient{
-		context:  ctx,
-		cancel:   cancel,
-		Options:  opts,
-		Rate:     newRateThrottle(0),
-		client:   createInternalHttpClient(opts),
-		errorLog: map[string]int{},
+		context:   ctx,
+		cancel:    cancel,
+		Options:   opts,
+		Rate:      newRateThrottle(0),
+		client:    createInternalHttpClient(opts),
+		errorLog:  map[string]int{},
+		CookieJar: map[string]string{},
 	}
 }
 

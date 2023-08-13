@@ -117,7 +117,7 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 		evt.Request.AddCookie(&http.Cookie{Name: k, Value: v})
 	}
 
-	opts.CacheBusting.apply(evt.Request)
+	opts.CacheBusting.Apply(evt.Request)
 
 	var start time.Time
 	trace := &httptrace.ClientTrace{

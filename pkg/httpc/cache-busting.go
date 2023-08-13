@@ -28,7 +28,7 @@ var AggressiveCacheBusting = CacheBustingOptions{
 	AcceptLanguage:   true,
 }
 
-func (opts CacheBustingOptions) apply(req *http.Request) {
+func (opts CacheBustingOptions) Apply(req *http.Request) {
 	if opts.QueryCacheBuster {
 		param := req.URL.Query().Get(DefaultCacheBusterParam)
 		// if param already exists, dont replace it

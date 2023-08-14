@@ -15,8 +15,16 @@ func (log EventLog) Find(where func(evt *HttpEvent) bool) *HttpEvent {
 func (log EventLog) Search(where func(evt *HttpEvent) bool) []*HttpEvent {
 	found := []*HttpEvent{}
 	for _, evt := range log {
-		if where(evt) {
-			found = append(found, evt)
+		for {
+			if where(evt) {
+				found = append(found, evt)
+			}
+
+			if evt.Prev == nil {
+				break
+			}
+
+			evt = evt.Prev
 		}
 	}
 

@@ -148,7 +148,7 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 		return c.handleError(evt, err)
 	}
 
-	gologger.Debug().Msgf("%s %s\n", evt.Request.URL.String(), evt.Response.Status)
+	gologger.Debug().Msgf("%s %s %d\n", evt.Request.URL.String(), evt.Response.Status, evt.Response.ContentLength)
 
 	if c.Options.MaintainCookieJar && evt.Response.Cookies() != nil {
 		for _, cookie := range evt.Response.Cookies() {

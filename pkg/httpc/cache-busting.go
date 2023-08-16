@@ -8,28 +8,32 @@ import (
 var DefaultCacheBusterParam = "cacheBuster"
 
 type CacheBustingOptions struct {
-	QueryCacheBuster bool
-	Origin           bool
-	Accept           bool
-	Cookie           bool
-	AcceptEncoding   bool
-	AcceptLanguage   bool
+	Query          bool
+	Hostname       bool
+	Port           bool
+	Origin         bool
+	Accept         bool
+	Cookie         bool
+	AcceptEncoding bool
+	AcceptLanguage bool
 }
 
 var SafeCacheBusting = CacheBustingOptions{
-	QueryCacheBuster: true,
+	Query: true,
 }
 
 var AggressiveCacheBusting = CacheBustingOptions{
-	QueryCacheBuster: true,
-	Cookie:           true,
-	Accept:           true,
-	AcceptEncoding:   true,
-	AcceptLanguage:   true,
+	Query:          true,
+	Cookie:         true,
+	Accept:         true,
+	AcceptEncoding: true,
+	AcceptLanguage: true,
+	Hostname:       false,
+	Port:           false,
 }
 
 func (opts CacheBustingOptions) Apply(req *http.Request) {
-	if opts.QueryCacheBuster {
+	if opts.Query {
 		param := req.URL.Query().Get(DefaultCacheBusterParam)
 		// if param already exists, dont replace it
 		if param == "" {

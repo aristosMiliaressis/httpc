@@ -1,8 +1,10 @@
 package httpc
 
 import (
+	"fmt"
 	"math/rand"
 	"net/http"
+	"time"
 )
 
 var DefaultCacheBusterParam = "cacheBuster"
@@ -77,6 +79,19 @@ func (opts CacheBustingOptions) Apply(req *http.Request) {
 
 	if opts.Origin {
 		req.Header.Set("Origin", req.URL.Scheme+"://"+RandomString(7)+"."+req.URL.Host)
+	}
+
+	if opts.Port {
+		port := 0
+		for {
+			s1 := rand.NewSource(time.Now().UnixNano())
+			r1 := rand.New(s1)
+			port := r1.Intn(65535)
+			if port != 80 && port != 443 {
+				break
+			}
+		}
+		req.Header.Set("Host", fmt.Sprintf("%s:%d", req.URL.Hostname(), port))
 	}
 }
 

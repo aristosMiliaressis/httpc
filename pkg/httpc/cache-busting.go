@@ -86,12 +86,12 @@ func (opts CacheBustingOptions) Apply(req *http.Request) {
 		for {
 			s1 := rand.NewSource(time.Now().UnixNano())
 			r1 := rand.New(s1)
-			port := r1.Intn(65535)
+			port = r1.Intn(65535)
 			if port != 80 && port != 443 {
 				break
 			}
 		}
-		req.Header.Set("Host", fmt.Sprintf("%s:%d", req.URL.Hostname(), port))
+		req.Host = fmt.Sprintf("%s:%d", req.URL.Hostname(), port)
 	}
 }
 

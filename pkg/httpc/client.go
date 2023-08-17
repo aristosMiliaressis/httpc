@@ -114,6 +114,9 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 	}
 
 	for k, v := range c.CookieJar {
+		if ContainsCookie(evt.Request, k) {
+			continue
+		}
 		evt.Request.AddCookie(&http.Cookie{Name: k, Value: v})
 	}
 
@@ -275,4 +278,13 @@ func (c *HttpClient) ConnectRequest(req *http.Request, opts *HttpOptions) HttpEv
 	c.EventLog = append(c.EventLog, &evt)
 
 	return evt
+}
+
+func ContainsCookie(req *http.Request, cookieName string) bool {
+	for _, cookie := range req.Cookies() {
+		if cookie.Name == cookieName {
+			return true
+		}
+	}
+	return false
 }

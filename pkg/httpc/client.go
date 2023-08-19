@@ -155,7 +155,9 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 
 	if c.Options.MaintainCookieJar && evt.Response.Cookies() != nil {
 		for _, cookie := range evt.Response.Cookies() {
-			c.CookieJar[cookie.Name] = cookie.Value
+			if c.CookieJar[cookie.Name] != cookie.Value {
+				c.CookieJar[cookie.Name] = cookie.Value
+			}
 		}
 	}
 

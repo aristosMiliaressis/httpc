@@ -19,6 +19,7 @@ type CacheBustingOptions struct {
 	AcceptEncoding    bool
 	AcceptLanguage    bool
 	StaticCacheBuster string
+	QueryParam        string
 }
 
 var SafeCacheBusting = CacheBustingOptions{
@@ -45,11 +46,15 @@ func (opts CacheBustingOptions) getCacheBuster() string {
 
 func (opts CacheBustingOptions) Apply(req *http.Request) {
 	if opts.Query {
-		param := req.URL.Query().Get(DefaultCacheBusterParam)
+		cb := DefaultCacheBusterParam
+		if opts.QueryParam != "" {
+			cb = opts.QueryParam
+		}
+		param := req.URL.Query().Get(cb)
 		// if param already exists, dont replace it
 		if param == "" {
 			query := req.URL.Query()
-			query.Add(DefaultCacheBusterParam, opts.getCacheBuster())
+			query.Add(cb, opts.getCacheBuster())
 			req.URL.RawQuery = query.Encode()
 		}
 	}

@@ -223,13 +223,9 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 }
 
 func (c *HttpClient) SendRaw(rawreq string, baseUrl string) HttpEvent {
-	rawhttpOptions := rawhttp.Options{
-		Timeout:         time.Duration(c.Options.Timeout * 1000),
-		CustomRawBytes:  []byte(rawreq),
-		FollowRedirects: c.Options.FollowRedirects,
-		MaxRedirects:    c.Options.MaxRedirects,
-	}
-	httpclient := rawhttp.NewClient(&rawhttpOptions)
+	rawhttpOptions := rawhttp.DefaultOptions
+	rawhttpOptions.CustomRawBytes = []byte(rawreq)
+	httpclient := rawhttp.NewClient(rawhttpOptions)
 	defer httpclient.Close()
 
 	var err error

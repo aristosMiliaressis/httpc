@@ -224,21 +224,17 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 
 func (c *HttpClient) SendRaw(rawreq string, baseUrl string) HttpEvent {
 	rawhttpOptions := rawhttp.Options{
-		Timeout:                time.Duration(c.Options.Timeout * 1000),
-		AutomaticHostHeader:    false,
-		AutomaticContentLength: false,
-		CustomRawBytes:         []byte(rawreq),
-		FollowRedirects:        c.Options.FollowRedirects,
-		MaxRedirects:           c.Options.MaxRedirects,
-		Proxy:                  c.Options.ProxyUrl,
-		//SNI
+		Timeout:         time.Duration(c.Options.Timeout * 1000),
+		CustomRawBytes:  []byte(rawreq),
+		FollowRedirects: c.Options.FollowRedirects,
+		MaxRedirects:    c.Options.MaxRedirects,
 	}
 	httpclient := rawhttp.NewClient(&rawhttpOptions)
 	defer httpclient.Close()
 
 	var err error
 	evt := HttpEvent{}
-	evt.Response, err = httpclient.DoRaw("", baseUrl, "/", map[string][]string{}, nil)
+	evt.Response, err = httpclient.DoRaw("GET", baseUrl, "", nil, nil)
 	if err != nil {
 		gologger.Warning().Msgf("Encountered error while sending raw request: %s", err)
 	}

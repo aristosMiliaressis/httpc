@@ -240,7 +240,7 @@ func (c *HttpClient) SendRaw(rawreq string, baseUrl string) HttpEvent {
 	evt := HttpEvent{}
 	evt.Response, err = httpclient.DoRaw("", baseUrl, "/", map[string][]string{}, nil)
 	if err != nil {
-		// TODO: handle errors
+		gologger.Warning().Msgf("Encountered error while sending raw request: %s", err)
 	}
 
 	c.EventLog = append(c.EventLog, &evt)

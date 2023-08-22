@@ -57,10 +57,36 @@ func (c *HttpClient) handleError(evt HttpEvent, err error) HttpEvent {
 
 func (c *HttpClient) verifyIpBan(evt HttpEvent) error {
 
-	// TODO: look in RequestLog for request with different error || status
+	events := c.EventLog.Search(func(e *HttpEvent) bool {
+		if evt.Response == nil {
+			return e.TransportError != evt.TransportError
+		} else {
+			return e.Response != nil && e.Response.StatusCode != evt.Response.StatusCode
+		}
+	})
+
+	i := 0
+	for {
+		if i >= len(events) || i > 3 {
+			break
+		}
+		req := events[i].Request.Clone(c.context)
+
+		newEvt := c.Send(req)
+		if evt.TransportError != NoError && newEvt.TransportError != evt.TransportError {
+			return nil
+		} else if evt.TransportError == NoError && newEvt.Response != nil && newEvt.Response.Status != evt.Response.Status {
+			return nil
+		}
+
+		i += 1
+	}
 
 	if c.Options.IpRotateOnIpBan {
 		return c.enableIpRotate(evt.Request.URL)
+	} else {
+		gologger.Fatal().Msg("IP ban detected, exiting.")
+		os.Exit(1)
 	}
 
 	return nil

@@ -22,7 +22,7 @@ HTTP Client Library for security tooling
 - [x] option to replay ratelimitted requests
 - [ ] built in concurency support
 
-- [ ] ip ban detection
+- [x] ip ban detection
 - [ ] apigateway based ip rotation (requires aws creds)
 
 - [x] configurable cache busting with support for query & headers

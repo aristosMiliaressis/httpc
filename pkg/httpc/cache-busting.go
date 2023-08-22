@@ -109,6 +109,43 @@ func (opts CacheBustingOptions) Apply(req *http.Request) {
 	}
 }
 
+func (opts CacheBustingOptions) Clear(req *http.Request) {
+	if opts.Query {
+		cb := DefaultCacheBusterParam
+		if opts.QueryParam != "" {
+			cb = opts.QueryParam
+		}
+
+		q := req.URL.Query()
+		q.Del(cb)
+		req.URL.RawQuery = q.Encode()
+	}
+
+	if opts.Cookie {
+		req.Header.Del("Cookie")
+	}
+
+	if opts.Accept {
+		req.Header.Del("Accept")
+	}
+
+	if opts.AcceptEncoding {
+		req.Header.Del("Accept-Encoding")
+	}
+
+	if opts.AcceptLanguage {
+		req.Header.Del("Accept-Language")
+	}
+
+	if opts.Origin {
+		req.Header.Del("Accept-Origin")
+	}
+
+	if opts.Port {
+		req.Host = req.URL.Hostname()
+	}
+}
+
 var chars = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 func RandomString(length int) string {

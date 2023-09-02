@@ -165,11 +165,11 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 
 	if c.Options.MaintainCookieJar && evt.Response.Cookies() != nil {
 		for _, cookie := range evt.Response.Cookies() {
+			c.cookieJarMutex.Lock()
 			if c.cookieJar[cookie.Name] != cookie.Value {
-				c.cookieJarMutex.Lock()
 				c.cookieJar[cookie.Name] = cookie.Value
-				c.cookieJarMutex.Unlock()
 			}
+			c.cookieJarMutex.Unlock()
 		}
 	}
 

@@ -10,14 +10,14 @@ import (
 var DefaultCacheBusterParam = "cacheBuster"
 
 type CacheBustingOptions struct {
-	Query             bool
-	Hostname          bool
-	Port              bool
-	Origin            bool
-	Accept            bool
-	Cookie            bool
-	AcceptEncoding    bool
-	AcceptLanguage    bool
+	Query             bool   `json:",omitempty"`
+	Hostname          bool   `json:",omitempty"`
+	Port              bool   `json:",omitempty"`
+	Origin            bool   `json:",omitempty"`
+	Accept            bool   `json:",omitempty"`
+	Cookie            bool   `json:",omitempty"`
+	AcceptEncoding    bool   `json:",omitempty"`
+	AcceptLanguage    bool   `json:",omitempty"`
 	StaticCacheBuster string `json:"-"`
 	QueryParam        string `json:"-"`
 }

@@ -20,16 +20,17 @@ import (
 )
 
 type HttpClient struct {
-	context     context.Context
-	cancel      context.CancelFunc
-	client      http.Client
-	Options     HttpOptions
-	Rate        *RateThrottle
-	EventLog    EventLog
-	errorLog    map[string]int
-	errorMutex  sync.Mutex
-	apiGateways map[string]*iprotate.ApiEndpoint
-	CookieJar   map[string]string
+	context        context.Context
+	cancel         context.CancelFunc
+	client         http.Client
+	Options        HttpOptions
+	Rate           *RateThrottle
+	EventLog       EventLog
+	errorLog       map[string]int
+	errorMutex     sync.Mutex
+	apiGateways    map[string]*iprotate.ApiEndpoint
+	CookieJar      map[string]string
+	cookieJarMutex sync.Mutex
 }
 
 func NewHttpClient(opts HttpOptions, ctx context.Context) HttpClient {
@@ -156,7 +157,9 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 	if c.Options.MaintainCookieJar && evt.Response.Cookies() != nil {
 		for _, cookie := range evt.Response.Cookies() {
 			if c.CookieJar[cookie.Name] != cookie.Value {
+				c.cookieJarMutex.Lock()
 				c.CookieJar[cookie.Name] = cookie.Value
+				c.cookieJarMutex.Unlock()
 			}
 		}
 	}

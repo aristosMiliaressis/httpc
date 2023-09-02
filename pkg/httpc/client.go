@@ -30,7 +30,7 @@ type HttpClient struct {
 	errorMutex     sync.Mutex
 	apiGateways    map[string]*iprotate.ApiEndpoint
 	CookieJar      map[string]string
-	cookieJarMutex sync.Mutex
+	cookieJarMutex sync.RWMutex
 }
 
 func NewHttpClient(opts HttpOptions, ctx context.Context) HttpClient {
@@ -114,12 +114,14 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 		evt.Request.Header.Set(k, v[0])
 	}
 
+	c.cookieJarMutex.RLock()
 	for k, v := range c.CookieJar {
 		if ContainsCookie(evt.Request, k) {
 			continue
 		}
 		evt.Request.AddCookie(&http.Cookie{Name: k, Value: v})
 	}
+	c.cookieJarMutex.RUnlock()
 
 	opts.CacheBusting.Apply(evt.Request)
 

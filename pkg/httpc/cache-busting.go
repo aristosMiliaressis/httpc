@@ -18,8 +18,8 @@ type CacheBustingOptions struct {
 	Cookie            bool
 	AcceptEncoding    bool
 	AcceptLanguage    bool
-	StaticCacheBuster string
-	QueryParam        string
+	StaticCacheBuster string `json:"-"`
+	QueryParam        string `json:"-"`
 }
 
 var SafeCacheBusting = CacheBustingOptions{

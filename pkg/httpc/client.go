@@ -29,8 +29,15 @@ type HttpClient struct {
 	errorLog       map[string]int
 	errorMutex     sync.Mutex
 	apiGateways    map[string]*iprotate.ApiEndpoint
-	CookieJar      map[string]string
+	cookieJar      map[string]string
 	cookieJarMutex sync.RWMutex
+}
+
+func (c HttpClient) GetCookieJar() map[string]string {
+	c.cookieJarMutex.RLock()
+	defer c.cookieJarMutex.RUnlock()
+
+	return c.cookieJar
 }
 
 func NewHttpClient(opts HttpOptions, ctx context.Context) HttpClient {
@@ -43,7 +50,7 @@ func NewHttpClient(opts HttpOptions, ctx context.Context) HttpClient {
 		Rate:      newRateThrottle(0),
 		client:    createInternalHttpClient(opts),
 		errorLog:  map[string]int{},
-		CookieJar: map[string]string{},
+		cookieJar: map[string]string{},
 	}
 }
 
@@ -115,7 +122,7 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 	}
 
 	c.cookieJarMutex.RLock()
-	for k, v := range c.CookieJar {
+	for k, v := range c.cookieJar {
 		if ContainsCookie(evt.Request, k) {
 			continue
 		}
@@ -158,9 +165,9 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 
 	if c.Options.MaintainCookieJar && evt.Response.Cookies() != nil {
 		for _, cookie := range evt.Response.Cookies() {
-			if c.CookieJar[cookie.Name] != cookie.Value {
+			if c.cookieJar[cookie.Name] != cookie.Value {
 				c.cookieJarMutex.Lock()
-				c.CookieJar[cookie.Name] = cookie.Value
+				c.cookieJar[cookie.Name] = cookie.Value
 				c.cookieJarMutex.Unlock()
 			}
 		}

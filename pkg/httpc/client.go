@@ -33,7 +33,7 @@ type HttpClient struct {
 	cookieJarMutex sync.RWMutex
 }
 
-func (c HttpClient) GetCookieJar() map[string]string {
+func (c *HttpClient) GetCookieJar() map[string]string {
 	c.cookieJarMutex.RLock()
 	defer c.cookieJarMutex.RUnlock()
 

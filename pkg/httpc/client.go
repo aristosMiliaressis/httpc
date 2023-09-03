@@ -155,10 +155,6 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 		evt.Response, err = c.client.Do(evt.Request)
 	}
 
-	if evt.Response != nil {
-		defer evt.Response.Body.Close()
-	}
-
 	c.EventLog = append(c.EventLog, &evt)
 
 	if err != nil {

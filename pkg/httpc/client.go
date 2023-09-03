@@ -20,17 +20,19 @@ import (
 )
 
 type HttpClient struct {
-	context        context.Context
-	cancel         context.CancelFunc
-	client         http.Client
-	Options        HttpOptions
-	Rate           *RateThrottle
-	EventLog       EventLog
-	errorLog       map[string]int
-	errorMutex     sync.Mutex
-	apiGateways    map[string]*iprotate.ApiEndpoint
-	cookieJar      map[string]string
-	cookieJarMutex sync.RWMutex
+	context         context.Context
+	cancel          context.CancelFunc
+	client          http.Client
+	Options         HttpOptions
+	Rate            *RateThrottle
+	EventLog        EventLog
+	errorLog        map[string]int
+	errorMutex      sync.Mutex
+	apiGateways     map[string]*iprotate.ApiEndpoint
+	cookieJar       map[string]string
+	cookieJarMutex  sync.RWMutex
+	totalErrors     int
+	totalSuccessful int
 }
 
 func (c *HttpClient) GetCookieJar() map[string]string {
@@ -213,6 +215,24 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 		c.EventLog = append(c.EventLog, &newEvt)
 
 		return newEvt
+	}
+
+	if evt.TransportError != NoError || evt.Response.StatusCode >= 400 {
+		c.totalErrors += 1
+		c.errorLog["GENERAL"] += 1
+	} else {
+		c.totalSuccessful += 1
+		c.errorLog["GENERAL"] = 0
+	}
+
+	if c.errorLog["GENERAL"] > c.Options.ConsecutiveErrorThreshold {
+		gologger.Fatal().Msg("Consecutive Error Threshold Exceeded, exiting.")
+		os.Exit(1)
+	}
+
+	if 100/((c.totalSuccessful+c.totalErrors)/c.totalErrors) > c.Options.ErrorPercentageThreshold && c.totalSuccessful+c.totalErrors > 40 {
+		gologger.Fatal().Msg("Error Percentage Threshold Exceeded, exiting.")
+		os.Exit(1)
 	}
 
 	if evt.Response.StatusCode == 429 || evt.Response.StatusCode == 503 {

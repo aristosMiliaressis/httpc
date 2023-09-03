@@ -19,6 +19,8 @@ type HttpOptions struct {
 	IpRotateOnIpBan             bool
 	currentDepth                int
 	DebugLogging                bool
+	ErrorPercentageThreshold    int
+	ConsecutiveErrorThreshold   int
 }
 
 var DefaultOptions = HttpOptions{
@@ -33,6 +35,8 @@ var DefaultOptions = HttpOptions{
 	AutoRateThrottle:          true,
 	ReplayRateLimitted:        true,
 	IpBanDetectionThreshold:   4,
+	ErrorPercentageThreshold:  10,
+	ConsecutiveErrorThreshold: 50,
 }
 
 type Range struct {

@@ -217,6 +217,7 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 		return newEvt
 	}
 
+	c.errorMutex.Lock()
 	if evt.TransportError != NoError || evt.Response.StatusCode >= 400 {
 		c.totalErrors += 1
 		c.errorLog["GENERAL"] += 1
@@ -224,6 +225,7 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 		c.totalSuccessful += 1
 		c.errorLog["GENERAL"] = 0
 	}
+	c.errorMutex.Unlock()
 
 	if c.errorLog["GENERAL"] > c.Options.ConsecutiveErrorThreshold {
 		gologger.Fatal().Msgf("Exceeded %d consecutive errors threshold, exiting.", c.Options.ConsecutiveErrorThreshold)

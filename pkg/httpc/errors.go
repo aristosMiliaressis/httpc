@@ -32,16 +32,19 @@ func (c *HttpClient) handleError(evt HttpEvent, err error) HttpEvent {
 
 	if os.IsTimeout(err) || errors.Is(err, syscall.ETIME) || errors.Is(err, syscall.ETIMEDOUT) {
 		evt.TransportError = Timeout
-		errorCount = c.errorLog[Timeout.String()] + 1
+		c.errorLog[Timeout.String()] += 1
+		errorCount = c.errorLog[Timeout.String()]
 	} else if errors.Is(err, syscall.ECONNRESET) || strings.Contains(err.Error(), "An existing connection was forcibly closed") {
 		evt.TransportError = ConnectionReset
-		errorCount = c.errorLog[ConnectionReset.String()] + 1
+		c.errorLog[ConnectionReset.String()] += 1
+		errorCount = c.errorLog[ConnectionReset.String()]
 	} else if strings.Contains(err.Error(), "invalid header field name") {
 		evt.TransportError = UnknownError
 	} else {
 		gologger.Error().Msg(err.Error())
 		evt.TransportError = UnknownError
-		errorCount = c.errorLog[UnknownError.String()] + 1
+		c.errorLog[UnknownError.String()] += 1
+		errorCount = c.errorLog[UnknownError.String()]
 	}
 
 	c.errorMutex.Unlock()

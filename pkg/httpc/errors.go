@@ -88,8 +88,8 @@ func (c *HttpClient) verifyIpBan(evt HttpEvent) error {
 	if c.Options.IpRotateOnIpBan {
 		return c.enableIpRotate(evt.Request.URL)
 	} else {
-		gologger.Fatal().Msg("IP ban detected, exiting.")
-		os.Exit(1)
+		//gologger.Fatal().Msg("IP ban detected, exiting.")
+		//os.Exit(1)
 	}
 
 	return nil

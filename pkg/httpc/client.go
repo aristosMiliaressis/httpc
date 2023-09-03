@@ -237,7 +237,7 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 		os.Exit(1)
 	}
 
-	if evt.Response.StatusCode == 429 || evt.Response.StatusCode == 503 {
+	if evt.Response.StatusCode == 429 {
 		if opts.AutoRateThrottle {
 			opts.Delay.Max += 0.1
 			opts.Delay.Min = opts.Delay.Max - 0.1

@@ -19,7 +19,7 @@ type CacheBustingOptions struct {
 	AcceptEncoding    bool   `json:",omitempty"`
 	AcceptLanguage    bool   `json:",omitempty"`
 	StaticCacheBuster string `json:"-"`
-	QueryParam        string `json:"-"`
+	QueryParam        string `json:",omitempty"`
 }
 
 var SafeCacheBusting = CacheBustingOptions{

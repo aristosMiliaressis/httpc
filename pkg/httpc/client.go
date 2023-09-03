@@ -230,7 +230,7 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 		os.Exit(1)
 	}
 
-	if c.totalSuccessful+c.totalErrors > 40 && (c.totalSuccessful == 0 || 100.0/(float64((c.totalSuccessful+c.totalErrors)/c.totalErrors)) > float64(c.Options.ErrorPercentageThreshold)) {
+	if c.totalSuccessful+c.totalErrors > 40 && (c.totalSuccessful == 0 || int(100.0/(float64((c.totalSuccessful+c.totalErrors))/float64(c.totalErrors))) > c.Options.ErrorPercentageThreshold) {
 		gologger.Fatal().Msgf("%d errors out of %d requests exceeded %d%% error threshold, exiting.", c.totalErrors, c.totalSuccessful+c.totalErrors, c.Options.ErrorPercentageThreshold)
 		os.Exit(1)
 	}

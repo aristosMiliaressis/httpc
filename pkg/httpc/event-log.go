@@ -12,8 +12,8 @@ func (log EventLog) Find(where func(evt *HttpEvent) bool) *HttpEvent {
 	return nil
 }
 
-func (log EventLog) Search(where func(evt *HttpEvent) bool) []*HttpEvent {
-	found := []*HttpEvent{}
+func (log EventLog) Search(where func(evt *HttpEvent) bool) EventLog {
+	found := EventLog{}
 	for _, evt := range log {
 		for {
 			if where(evt) {

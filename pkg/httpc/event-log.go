@@ -30,3 +30,20 @@ func (log EventLog) Search(where func(evt *HttpEvent) bool) []*HttpEvent {
 
 	return found
 }
+
+func (log EventLog) Select(filter func(evt *HttpEvent) string) []string {
+	selected := []string{}
+	for _, evt := range log {
+		for {
+			selected = append(selected, filter(evt))
+
+			if evt.Prev == nil {
+				break
+			}
+
+			evt = evt.Prev
+		}
+	}
+
+	return selected
+}

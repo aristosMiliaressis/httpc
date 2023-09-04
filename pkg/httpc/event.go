@@ -5,11 +5,7 @@ import (
 	"time"
 )
 
-type InternalCacheKey string
-
 type HttpEvent struct {
-	CacheKey InternalCacheKey
-
 	TransportError TransportError
 	Duration       time.Duration
 

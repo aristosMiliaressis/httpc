@@ -258,6 +258,7 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 
 func (c *HttpClient) SendRaw(rawreq string, baseUrl string) HttpEvent {
 	rawhttpOptions := rawhttp.DefaultOptions
+	rawhttpOptions.AutomaticHostHeader = false
 	rawhttpOptions.CustomRawBytes = []byte(rawreq)
 	httpclient := rawhttp.NewClient(rawhttpOptions)
 	defer httpclient.Close()

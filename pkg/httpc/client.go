@@ -26,9 +26,9 @@ type HttpClient struct {
 	Options         HttpOptions
 	Rate            *RateThrottle
 	EventLog        EventLog
-	errorLog        map[string]int
+	errorLog        map[string]int // make concurrent
 	errorMutex      sync.Mutex
-	apiGateways     map[string]*iprotate.ApiEndpoint
+	apiGateways     map[string]*iprotate.ApiEndpoint // make concurrent
 	cookieJar       map[string]string
 	cookieJarMutex  sync.RWMutex
 	totalErrors     int

@@ -45,16 +45,23 @@ func (opts CacheBustingOptions) getCacheBuster() string {
 }
 
 func (opts CacheBustingOptions) Apply(req *http.Request) {
-	if opts.Query {
-		cb := DefaultCacheBusterParam
-		if opts.QueryParam != "" {
-			cb = opts.QueryParam
-		}
-		param := req.URL.Query().Get(cb)
+
+	if opts.QueryParam != "" {
+		param := req.URL.Query().Get(opts.QueryParam)
 		// if param already exists, dont replace it
 		if param == "" {
 			query := req.URL.Query()
-			query.Add(cb, opts.getCacheBuster())
+			query.Add(opts.QueryParam, opts.getCacheBuster())
+			req.URL.RawQuery = query.Encode()
+		}
+	}
+
+	if opts.Query {
+		param := req.URL.Query().Get(DefaultCacheBusterParam)
+		// if param already exists, dont replace it
+		if param == "" {
+			query := req.URL.Query()
+			query.Add(DefaultCacheBusterParam, opts.getCacheBuster())
 			req.URL.RawQuery = query.Encode()
 		}
 	}
@@ -110,14 +117,16 @@ func (opts CacheBustingOptions) Apply(req *http.Request) {
 }
 
 func (opts CacheBustingOptions) Clear(req *http.Request) {
-	if opts.Query {
-		cb := DefaultCacheBusterParam
-		if opts.QueryParam != "" {
-			cb = opts.QueryParam
-		}
 
+	if opts.QueryParam != "" {
 		q := req.URL.Query()
-		q.Del(cb)
+		q.Del(opts.QueryParam)
+		req.URL.RawQuery = q.Encode()
+	}
+
+	if opts.Query {
+		q := req.URL.Query()
+		q.Del(DefaultCacheBusterParam)
 		req.URL.RawQuery = q.Encode()
 	}
 

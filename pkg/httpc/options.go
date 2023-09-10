@@ -14,6 +14,8 @@ type HttpOptions struct {
 	AutoRateThrottle            bool
 	ReplayRateLimitted          bool
 	CacheBusting                CacheBustingOptions
+	ForceAttemptHTTP1           bool
+	ForceAttemptHTTP2           bool
 	SNI                         string
 	IpBanDetectionThreshold     int
 	IpRotateOnIpBan             bool

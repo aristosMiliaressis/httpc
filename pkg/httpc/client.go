@@ -70,13 +70,16 @@ func createInternalHttpClient(opts HttpOptions) http.Client {
 		gologger.DefaultLogger.SetMaxLevel(levels.LevelWarning)
 	}
 
-	os.Setenv("GODEBUG", "http2client=0")
+	if opts.ForceAttemptHTTP1 {
+		os.Setenv("GODEBUG", "http2client=0")
+	}
+
 	return http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse },
 		Timeout:       time.Duration(time.Duration(opts.Timeout) * time.Second),
 		Transport: &http.Transport{
 			Proxy:               proxyURL,
-			ForceAttemptHTTP2:   false,
+			ForceAttemptHTTP2:   opts.ForceAttemptHTTP2,
 			DisableCompression:  true,
 			MaxIdleConns:        1000,
 			MaxIdleConnsPerHost: 500,
@@ -257,9 +260,12 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 }
 
 func (c *HttpClient) SendRaw(rawreq string, baseUrl string) HttpEvent {
+	u, _ := url.Parse(baseUrl)
+	fmt.Println(rawreq)
 	rawhttpOptions := rawhttp.DefaultOptions
 	rawhttpOptions.AutomaticHostHeader = false
 	rawhttpOptions.CustomRawBytes = []byte(rawreq)
+	rawhttpOptions.SNI = u.Hostname()
 	httpclient := rawhttp.NewClient(rawhttpOptions)
 	defer httpclient.Close()
 

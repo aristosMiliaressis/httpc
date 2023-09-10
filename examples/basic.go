@@ -19,7 +19,7 @@ func main() {
 	fmt.Println(evt.TransportError)
 	fmt.Printf("%s\n", evt.Response.Status)
 
-	req, _ := http.NewRequest("GET", "https://secure.spotlightpos.com", nil)
+	req, _ := http.NewRequest("GET", "https://127.0.0.1", nil)
 	req.Header.Add("Accept", "text/*")
 
 	newOpts := client.Options

@@ -1,6 +1,7 @@
 package httpc
 
 import (
+	"bufio"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -106,12 +107,14 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 
 	c.sleepIfNeeded(opts.Delay)
 
-	if req.Method == "CONNECT" {
-		return c.ConnectRequest(req, opts)
-	}
-
 	evt := HttpEvent{
 		Request: req.Clone(c.context),
+	}
+
+	if opts.ForceAttemptHTTP2 {
+		evt.Request.Header.Del("Connection")
+		evt.Request.Header.Del("Upgrade")
+		evt.Request.Header.Del("Transfer-Encoding")
 	}
 
 	if evt.Request.Header["User-Agent"] == nil {
@@ -304,11 +307,46 @@ func GetRedirectLocation(resp *http.Response) string {
 	return ToAbsolute(resp.Request.URL.String(), redirectLocation)
 }
 
-func (c *HttpClient) ConnectRequest(req *http.Request, opts *HttpOptions) HttpEvent {
+func (c *HttpClient) ConnectRequest(proxyUrl *url.URL, destUrl *url.URL, opts *HttpOptions) HttpEvent {
 	evt := HttpEvent{}
-
 	c.EventLog = append(c.EventLog, &evt)
 
+	proxyAddr := proxyUrl.Host
+	if proxyUrl.Port() == "" {
+		if proxyUrl.Scheme == "http" {
+			proxyAddr = net.JoinHostPort(proxyAddr, "80")
+		} else {
+			proxyAddr = net.JoinHostPort(proxyAddr, "443")
+		}
+	}
+
+	if destUrl.Port() == "" {
+		if proxyUrl.Scheme == "http" {
+			destUrl.Host = destUrl.Host + ":80"
+		} else {
+			destUrl.Host = destUrl.Host + ":443"
+		}
+	}
+
+	conn, err := net.Dial("tcp", proxyAddr)
+	if err != nil {
+		gologger.Error().Msgf("dialing proxy %s failed: %v", proxyAddr, err)
+		return evt
+	}
+	fmt.Fprintf(conn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\nProxy-Authorization: basic aGVsbG86d29ybGQ=\r\n\r\n", destUrl.Host, destUrl.Host)
+	br := bufio.NewReader(conn)
+	evt.Response, err = http.ReadResponse(br, nil)
+	if err != nil {
+		// connect check failed, ignore error
+		return evt
+	}
+	// It's safe to discard the bufio.Reader here and return the
+	// original TCP conn directly because we only use this for
+	// TLS, and in TLS the client speaks first, so we know there's
+	// no unbuffered data. But we can double-check.
+	if br.Buffered() > 0 {
+		gologger.Error().Msgf("unexpected %d bytes of buffered data from CONNECT proxy %q", br.Buffered(), proxyAddr)
+	}
 	return evt
 }
 

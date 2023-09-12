@@ -17,9 +17,9 @@ HTTP Client Library for security tooling
 
 - [x] rate throttling option
 - [x] jitter option
+- [x] option to replay ratelimitted requests
 - [x] auto rate throttling based on 429 responses
 - [ ] auto rate throttling based on ratelimit headers
-- [x] option to replay ratelimitted requests
 - [ ] built in concurency support
 
 - [x] ip ban detection
@@ -29,4 +29,7 @@ HTTP Client Library for security tooling
 
 - [x] Raw http requests
 - [x] SNI injection      
-- [ ] CONNECT method support
+- [x] CONNECT method support
+
+- [ ] malformed HTTP/2 request support
+- [ ] malformed HTTP/3 request support

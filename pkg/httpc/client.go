@@ -232,13 +232,16 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 		c.errorLog["GENERAL"] = 0
 	}
 
-	if c.errorLog["GENERAL"] > c.Options.ConsecutiveErrorThreshold {
+	if c.Options.ConsecutiveErrorThreshold != 0 &&
+		c.errorLog["GENERAL"] > c.Options.ConsecutiveErrorThreshold {
 		gologger.Fatal().Msgf("Exceeded %d consecutive errors threshold, exiting.", c.Options.ConsecutiveErrorThreshold)
 		os.Exit(1)
 	}
 	c.errorMutex.Unlock()
 
-	if c.totalSuccessful+c.totalErrors > 40 && (c.totalSuccessful == 0 || int(100.0/(float64((c.totalSuccessful+c.totalErrors))/float64(c.totalErrors))) > c.Options.ErrorPercentageThreshold) {
+	if c.Options.ErrorPercentageThreshold != 0 &&
+		c.totalSuccessful+c.totalErrors > 40 &&
+		(c.totalSuccessful == 0 || int(100.0/(float64((c.totalSuccessful+c.totalErrors))/float64(c.totalErrors))) > c.Options.ErrorPercentageThreshold) {
 		gologger.Fatal().Msgf("%d errors out of %d requests exceeded %d%% error threshold, exiting.", c.totalErrors, c.totalSuccessful+c.totalErrors, c.Options.ErrorPercentageThreshold)
 		os.Exit(1)
 	}

@@ -1,6 +1,7 @@
 package httpc
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"strings"
@@ -22,6 +23,10 @@ const (
 
 func (e TransportError) String() string {
 	return []string{"NoError", "Timeout", "ConnectionReset", "TlsNegotiationFailure", "DnsError", "UnknownError"}[e]
+}
+
+func (e TransportError) MarshalJSON() ([]byte, error) {
+	return json.Marshal(e.String())
 }
 
 // TODO: use replay cache for banned requests

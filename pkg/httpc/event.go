@@ -44,6 +44,10 @@ func (e HttpEvent) IsRedirectLoop() bool {
 	e.Request.URL.RawQuery = query.Encode()
 
 	original := e.Request.URL.String()
+	if e.Response == nil {
+		return false
+	}
+
 	new := ToAbsolute(original, e.Response.Header["Location"][0])
 
 	return original == new || originalWithCacheBuster == new

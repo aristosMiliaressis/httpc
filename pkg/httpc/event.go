@@ -44,7 +44,7 @@ func (e HttpEvent) IsRedirectLoop() bool {
 	e.Request.URL.RawQuery = query.Encode()
 
 	original := e.Request.URL.String()
-	if e.Response == nil {
+	if e.Response == nil || len(e.Response.Header["Location"]) == 0 {
 		return false
 	}
 

@@ -305,6 +305,8 @@ func GetRedirectLocation(resp *http.Response) string {
 		if len(loc) > 0 {
 			redirectLocation = loc[0]
 		}
+	} else {
+		return resp.Request.URL.String()
 	}
 
 	return ToAbsolute(resp.Request.URL.String(), redirectLocation)

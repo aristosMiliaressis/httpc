@@ -195,10 +195,10 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 			return evt
 		}
 
-		if evt.IsRedirectLoop() {
-			evt.RedirectionLoop = true
-			return evt
-		}
+		// if evt.IsRedirectLoop() {
+		// 	evt.RedirectionLoop = true
+		// 	return evt
+		// }
 
 		opts.currentDepth++
 		if opts.currentDepth > opts.MaxRedirects {

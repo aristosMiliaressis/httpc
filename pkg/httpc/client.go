@@ -286,7 +286,7 @@ func (c *HttpClient) SendRaw(rawreq string, baseUrl string) HttpEvent {
 
 func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts *HttpOptions) HttpEvent {
 	rawhttpOptions := rawhttp.DefaultOptions
-	rawhttpOptions.Timeout = time.Duration(opts.Timeout)
+	rawhttpOptions.Timeout = time.Duration(opts.Timeout * int(time.Second))
 	rawhttpOptions.FollowRedirects = opts.FollowRedirects
 	rawhttpOptions.MaxRedirects = opts.MaxRedirects
 	rawhttpOptions.SNI = opts.SNI

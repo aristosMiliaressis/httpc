@@ -284,6 +284,33 @@ func (c *HttpClient) SendRaw(rawreq string, baseUrl string) HttpEvent {
 	return evt
 }
 
+func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts *HttpOptions) HttpEvent {
+	rawhttpOptions := rawhttp.DefaultOptions
+	rawhttpOptions.Timeout = time.Duration(opts.Timeout)
+	rawhttpOptions.FollowRedirects = opts.FollowRedirects
+	rawhttpOptions.MaxRedirects = opts.MaxRedirects
+	rawhttpOptions.SNI = opts.SNI
+	rawhttpOptions.AutomaticHostHeader = false
+	rawhttpOptions.CustomRawBytes = []byte(rawreq)
+	httpclient := rawhttp.NewClient(rawhttpOptions)
+	defer httpclient.Close()
+
+	var err error
+	evt := HttpEvent{}
+	for i := 0; i < opts.RetryCount; i++ {
+		evt.Response, err = httpclient.DoRaw("GET", baseUrl, "", nil, nil)
+		if err == nil {
+			break
+		}
+
+		gologger.Warning().Msgf("Encountered error while sending raw request: %s", err)
+	}
+
+	c.EventLog = append(c.EventLog, &evt)
+
+	return evt
+}
+
 func (c *HttpClient) sleepIfNeeded(delay Range) {
 
 	sTime := delay.Min + rand.Float64()*(delay.Max-delay.Min)
@@ -305,8 +332,6 @@ func GetRedirectLocation(resp *http.Response) string {
 		if len(loc) > 0 {
 			redirectLocation = loc[0]
 		}
-	} else {
-		return resp.Request.URL.String()
 	}
 
 	return ToAbsolute(resp.Request.URL.String(), redirectLocation)

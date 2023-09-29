@@ -23,6 +23,7 @@ type HttpOptions struct {
 	DebugLogging                bool
 	ErrorPercentageThreshold    int
 	ConsecutiveErrorThreshold   int
+	RetryCount                  int
 }
 
 var DefaultOptions = HttpOptions{
@@ -39,6 +40,7 @@ var DefaultOptions = HttpOptions{
 	IpBanDetectionThreshold:   4,
 	ErrorPercentageThreshold:  10,
 	ConsecutiveErrorThreshold: 50,
+	RetryCount:                1,
 }
 
 type Range struct {

@@ -185,15 +185,15 @@ func (c *HttpClient) SendRaw(rawreq string, baseUrl string) *MessageDuplex {
 	defer httpclient.Close()
 
 	var err error
-	evt := MessageDuplex{}
-	evt.Response, err = httpclient.DoRaw("GET", baseUrl, "", nil, nil)
+	msg := MessageDuplex{}
+	msg.Response, err = httpclient.DoRaw("GET", baseUrl, "", nil, nil)
 	if err != nil {
 		gologger.Warning().Msgf("Encountered error while sending raw request: %s", err)
 	}
 
-	c.MessageLog = append(c.MessageLog, &evt)
+	c.MessageLog = append(c.MessageLog, &msg)
 
-	return &evt
+	return &msg
 }
 
 func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts HttpOptions) *MessageDuplex {
@@ -208,9 +208,9 @@ func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts Http
 	defer httpclient.Close()
 
 	var err error
-	evt := MessageDuplex{}
+	msg := MessageDuplex{}
 	for i := 0; i < opts.RetryCount; i++ {
-		evt.Response, err = httpclient.DoRaw("GET", baseUrl, "", nil, nil)
+		msg.Response, err = httpclient.DoRaw("GET", baseUrl, "", nil, nil)
 		if err == nil {
 			break
 		}
@@ -218,9 +218,9 @@ func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts Http
 		gologger.Warning().Msgf("Encountered error while sending raw request: %s", err)
 	}
 
-	c.MessageLog = append(c.MessageLog, &evt)
+	c.MessageLog = append(c.MessageLog, &msg)
 
-	return &evt
+	return &msg
 }
 
 func (c *HttpClient) sleepIfNeeded(delay Range) {
@@ -250,8 +250,8 @@ func GetRedirectLocation(resp *http.Response) string {
 }
 
 func (c *HttpClient) ConnectRequest(proxyUrl *url.URL, destUrl *url.URL, opts HttpOptions) *MessageDuplex {
-	evt := MessageDuplex{}
-	c.MessageLog = append(c.MessageLog, &evt)
+	msg := MessageDuplex{}
+	c.MessageLog = append(c.MessageLog, &msg)
 
 	proxyAddr := proxyUrl.Host
 	if proxyUrl.Port() == "" {
@@ -273,14 +273,14 @@ func (c *HttpClient) ConnectRequest(proxyUrl *url.URL, destUrl *url.URL, opts Ht
 	conn, err := net.Dial("tcp", proxyAddr)
 	if err != nil {
 		gologger.Error().Msgf("dialing proxy %s failed: %v", proxyAddr, err)
-		return &evt
+		return &msg
 	}
 	fmt.Fprintf(conn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\nProxy-Authorization: basic aGVsbG86d29ybGQ=\r\n\r\n", destUrl.Host, destUrl.Host)
 	br := bufio.NewReader(conn)
-	evt.Response, err = http.ReadResponse(br, nil)
+	msg.Response, err = http.ReadResponse(br, nil)
 	if err != nil {
 		// connect check failed, ignore error
-		return &evt
+		return &msg
 	}
 	// It's safe to discard the bufio.Reader here and return the
 	// original TCP conn directly because we only use this for
@@ -289,7 +289,7 @@ func (c *HttpClient) ConnectRequest(proxyUrl *url.URL, destUrl *url.URL, opts Ht
 	if br.Buffered() > 0 {
 		gologger.Error().Msgf("unexpected %d bytes of buffered data from CONNECT proxy %q", br.Buffered(), proxyAddr)
 	}
-	return &evt
+	return &msg
 }
 
 func Contains[T int | string](s []T, e T) bool {

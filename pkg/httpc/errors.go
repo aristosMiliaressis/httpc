@@ -32,24 +32,24 @@ func (e TransportError) MarshalJSON() ([]byte, error) {
 var safeErrorsList = []int{401, 404, 405, 429, 500, 501}
 
 // TODO: use replay cache for banned requests
-func (c *HttpClient) handleError(evt *MessageDuplex, err error) *MessageDuplex {
+func (c *HttpClient) handleError(msg *MessageDuplex, err error) *MessageDuplex {
 	var errorCount int
 
 	c.errorMutex.Lock()
 
 	if os.IsTimeout(err) || errors.Is(err, syscall.ETIME) || errors.Is(err, syscall.ETIMEDOUT) {
-		evt.TransportError = Timeout
+		msg.TransportError = Timeout
 		c.errorLog[Timeout.String()] += 1
 		errorCount = c.errorLog[Timeout.String()]
 	} else if errors.Is(err, syscall.ECONNRESET) || strings.Contains(err.Error(), "An existing connection was forcibly closed") {
-		evt.TransportError = ConnectionReset
+		msg.TransportError = ConnectionReset
 		c.errorLog[ConnectionReset.String()] += 1
 		errorCount = c.errorLog[ConnectionReset.String()]
 	} else if strings.Contains(err.Error(), "invalid header field name") {
-		evt.TransportError = UnknownError
+		msg.TransportError = UnknownError
 	} else {
 		gologger.Error().Msg(err.Error())
-		evt.TransportError = UnknownError
+		msg.TransportError = UnknownError
 		c.errorLog[UnknownError.String()] += 1
 		errorCount = c.errorLog[UnknownError.String()]
 	}
@@ -57,35 +57,35 @@ func (c *HttpClient) handleError(evt *MessageDuplex, err error) *MessageDuplex {
 	c.errorMutex.Unlock()
 
 	if errorCount >= c.Options.IpBanDetectionThreshold {
-		err = c.verifyIpBan(evt)
+		err = c.verifyIpBan(msg)
 	}
 
-	gologger.Debug().Msgf("%s %s\n", evt.Request.URL.String(), evt.TransportError)
+	gologger.Debug().Msgf("%s %s\n", msg.Request.URL.String(), msg.TransportError)
 
-	return evt
+	return msg
 }
 
-func (c *HttpClient) verifyIpBan(evt *MessageDuplex) error {
+func (c *HttpClient) verifyIpBan(msg *MessageDuplex) error {
 
-	events := c.MessageLog.Search(func(e *MessageDuplex) bool {
-		if evt.Response == nil {
-			return e.TransportError != evt.TransportError
+	messages := c.MessageLog.Search(func(e *MessageDuplex) bool {
+		if msg.Response == nil {
+			return e.TransportError != msg.TransportError
 		} else {
-			return e.Response != nil && e.Response.StatusCode != evt.Response.StatusCode
+			return e.Response != nil && e.Response.StatusCode != msg.Response.StatusCode
 		}
 	})
 
 	i := 0
 	for {
-		if i >= len(events) || i > 3 {
+		if i >= len(messages) || i > 3 {
 			break
 		}
-		req := events[i].Request.Clone(c.context)
+		req := messages[i].Request.Clone(c.context)
 
-		newEvt := c.Send(req)
-		if evt.TransportError != NoError && newEvt.TransportError != evt.TransportError {
+		newMsg := c.Send(req)
+		if msg.TransportError != NoError && newMsg.TransportError != msg.TransportError {
 			return nil
-		} else if evt.TransportError == NoError && newEvt.Response != nil && newEvt.Response.Status != evt.Response.Status {
+		} else if msg.TransportError == NoError && newMsg.Response != nil && newMsg.Response.Status != msg.Response.Status {
 			return nil
 		}
 
@@ -93,7 +93,7 @@ func (c *HttpClient) verifyIpBan(evt *MessageDuplex) error {
 	}
 
 	if c.Options.IpRotateOnIpBan {
-		return c.enableIpRotate(evt.Request.URL)
+		return c.enableIpRotate(msg.Request.URL)
 	} else {
 		//gologger.Fatal().Msg("IP ban detected, exiting.")
 		//os.Exit(1)

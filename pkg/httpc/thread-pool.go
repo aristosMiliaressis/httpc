@@ -73,9 +73,9 @@ func (c *HttpClient) HandleRequest(msg *MessageDuplex, opts HttpOptions) {
 			return
 		}
 
-		// if evt.IsRedirectLoop() {
-		// 	evt.RedirectionLoop = true
-		// 	return evt
+		// if msg.IsRedirectLoop() {
+		// 	msg.RedirectionLoop = true
+		// 	return msg
 		// }
 
 		opts.currentDepth++

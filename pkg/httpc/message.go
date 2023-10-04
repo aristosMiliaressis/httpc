@@ -5,15 +5,16 @@ import (
 	"time"
 )
 
-type HttpEvent struct {
+type MessageDuplex struct {
 	TransportError TransportError
 	Duration       time.Duration
 
 	Request  *http.Request
 	Response *http.Response
+	Resolved chan bool
 
 	// Redirect Chain LinkedList
-	Prev *HttpEvent
+	Prev *MessageDuplex
 
 	RedirectionLoop      bool
 	MaxRedirectsExheeded bool
@@ -23,7 +24,7 @@ type HttpEvent struct {
 	RateLimited bool
 }
 
-func (e HttpEvent) RedirectDepth() int {
+func (e MessageDuplex) RedirectDepth() int {
 	depth := 0
 	for {
 		if e.Prev == nil {
@@ -35,7 +36,7 @@ func (e HttpEvent) RedirectDepth() int {
 	}
 }
 
-func (e HttpEvent) IsRedirectLoop() bool {
+func (e MessageDuplex) IsRedirectLoop() bool {
 
 	originalWithCacheBuster := e.Request.URL.String()
 
@@ -53,7 +54,7 @@ func (e HttpEvent) IsRedirectLoop() bool {
 	return original == new || originalWithCacheBuster == new
 }
 
-func (e *HttpEvent) AddRedirect(prev *HttpEvent) {
+func (e *MessageDuplex) AddRedirect(prev *MessageDuplex) {
 	current := e
 
 	for {

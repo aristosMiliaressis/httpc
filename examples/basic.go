@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
 
 	"github.com/aristosMiliaressis/httpc/pkg/httpc"
 )
@@ -14,30 +14,30 @@ func main() {
 	opts.ProxyUrl = "http://127.0.0.1:8080"
 
 	client := httpc.NewHttpClient(opts, context.Background())
+	defer client.Close()
 
-	evt := client.SendRaw("GET https://example.com HTTP/1.1\r\nHost: google.com\r\n\r\n", "http://127.0.0.1:8000")
-	fmt.Println(evt.TransportError)
-	fmt.Printf("%s\n", evt.Response.Status)
+	evt := client.SendRaw("GET /?cacheBuster=memRrNaqLRan HTTP/1.1\r\nHost: xxxx.h1-web-security-academy.net\r\nHost: apjDlpYjYRhR.example.com\r\nUser-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1\r\nAccept: */*, text/RQqfHFnOTfjw\r\nOrigin: https://HnjEAHZVtaUp.0ab300110358d490801b583100a100b8.h1-web-security-academy.net\r\nAccept-Encoding: gzip\r\n\r\n",
+		"https://xxxx.h1-web-security-academy.net")
+	respData, _ := httputil.DumpResponse(evt.Response, true)
+	fmt.Println(string(respData))
 
-	req, _ := http.NewRequest("GET", "https://127.0.0.1", nil)
+	req, _ := http.NewRequest("GET", "https://example.com", nil)
 	req.Header.Add("Accept", "text/*")
 
 	newOpts := client.Options
+	newOpts.DebugLogging = true
+	newOpts.MaxThreads = 6
 	newOpts.CacheBusting = httpc.AggressiveCacheBusting
 	newOpts.CacheBusting.AcceptEncoding = true
 	newOpts.CacheBusting.Origin = true
 	newOpts.DefaultHeaders["Cache-Control"] = "no-transform"
 
-	for {
-		evt := client.SendWithOptions(req, &newOpts)
-		fmt.Println(evt.TransportError)
-		fmt.Println(evt.Response.StatusCode)
-
-		body, err := ioutil.ReadAll(evt.Response.Body)
-		if err != nil {
-			fmt.Printf("Read Body Error %s\n", err)
-		} else {
-			fmt.Println(string(body))
-		}
+	var last *httpc.MessageDuplex
+	for i := 0; i < 20; i++ {
+		last = client.SendWithOptions(req, newOpts)
 	}
+
+	<-last.Resolved
+	respData, _ = httputil.DumpResponse(last.Response, false)
+	fmt.Println(string(respData))
 }

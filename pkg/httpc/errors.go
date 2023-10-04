@@ -29,8 +29,10 @@ func (e TransportError) MarshalJSON() ([]byte, error) {
 	return json.Marshal(e.String())
 }
 
+var safeErrorsList = []int{401, 404, 405, 429, 500, 501}
+
 // TODO: use replay cache for banned requests
-func (c *HttpClient) handleError(evt HttpEvent, err error) HttpEvent {
+func (c *HttpClient) handleError(evt *MessageDuplex, err error) *MessageDuplex {
 	var errorCount int
 
 	c.errorMutex.Lock()
@@ -63,9 +65,9 @@ func (c *HttpClient) handleError(evt HttpEvent, err error) HttpEvent {
 	return evt
 }
 
-func (c *HttpClient) verifyIpBan(evt HttpEvent) error {
+func (c *HttpClient) verifyIpBan(evt *MessageDuplex) error {
 
-	events := c.EventLog.Search(func(e *HttpEvent) bool {
+	events := c.MessageLog.Search(func(e *MessageDuplex) bool {
 		if evt.Response == nil {
 			return e.TransportError != evt.TransportError
 		} else {

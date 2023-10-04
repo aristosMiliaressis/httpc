@@ -21,40 +21,56 @@ import (
 )
 
 type HttpClient struct {
-	context         context.Context
-	cancel          context.CancelFunc
-	client          http.Client
-	Options         HttpOptions
-	Rate            *RateThrottle
-	EventLog        EventLog
-	errorLog        map[string]int // make concurrent
-	errorMutex      sync.Mutex
-	apiGateways     map[string]*iprotate.ApiEndpoint // make concurrent
-	cookieJar       map[string]string
-	cookieJarMutex  sync.RWMutex
+	context context.Context
+	cancel  context.CancelFunc
+	client  http.Client
+	Options HttpOptions
+	//Rate    *RateThrottle
+	ThreadPool *ThreadPool
+
+	MessageLog MessageLog
+
+	cookieJar      map[string]string
+	cookieJarMutex sync.RWMutex
+
+	errorLog   map[string]int
+	errorMutex sync.Mutex
+
 	totalErrors     int
 	totalSuccessful int
+
+	apiGateways map[string]*iprotate.ApiEndpoint // make concurrent
 }
 
-func (c *HttpClient) GetCookieJar() map[string]string {
-	c.cookieJarMutex.RLock()
-	defer c.cookieJarMutex.RUnlock()
-
-	return c.cookieJar
-}
-
-func NewHttpClient(opts HttpOptions, ctx context.Context) HttpClient {
+func NewHttpClient(opts HttpOptions, ctx context.Context) *HttpClient {
 	ctx, cancel := context.WithCancel(ctx)
 
-	return HttpClient{
-		context:   ctx,
-		cancel:    cancel,
-		Options:   opts,
-		Rate:      newRateThrottle(0),
+	c := HttpClient{
+		context: ctx,
+		cancel:  cancel,
+		Options: opts,
+		//Rate:      newRateThrottle(0),
+		ThreadPool: &ThreadPool{
+			maxThreads: opts.MaxThreads,
+			queuedRequestC: make(chan struct {
+				req  *MessageDuplex
+				opts HttpOptions
+			}),
+		},
 		client:    createInternalHttpClient(opts),
 		errorLog:  map[string]int{},
 		cookieJar: map[string]string{},
 	}
+
+	c.ThreadPool.SendRequestCallback = c.HandleRequest
+
+	c.ThreadPool.Run()
+
+	return &c
+}
+
+func (c *HttpClient) Close() {
+	close(c.ThreadPool.queuedRequestC)
 }
 
 func createInternalHttpClient(opts HttpOptions) http.Client {
@@ -99,46 +115,45 @@ func createInternalHttpClient(opts HttpOptions) http.Client {
 	}
 }
 
-func (c *HttpClient) Send(req *http.Request) HttpEvent {
-	return c.SendWithOptions(req, &c.Options)
+func (c *HttpClient) Send(req *http.Request) *MessageDuplex {
+	return c.SendWithOptions(req, c.Options)
 }
 
-func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpEvent {
+func (c *HttpClient) SendWithOptions(req *http.Request, opts HttpOptions) *MessageDuplex {
 
 	c.sleepIfNeeded(opts.Delay)
 
-	evt := HttpEvent{
-		Request: req.Clone(c.context),
+	msg := &MessageDuplex{
+		Request:  req.Clone(c.context),
+		Resolved: make(chan bool, 1),
 	}
 
 	if opts.ForceAttemptHTTP2 {
-		evt.Request.Header.Del("Connection")
-		evt.Request.Header.Del("Upgrade")
-		evt.Request.Header.Del("Transfer-Encoding")
+		msg.Request.Header.Del("Connection")
+		msg.Request.Header.Del("Upgrade")
+		msg.Request.Header.Del("Transfer-Encoding")
 	}
 
-	if evt.Request.Header["User-Agent"] == nil {
-		evt.Request.Header.Add("User-Agent", opts.DefaultUserAgent)
+	if msg.Request.Header["User-Agent"] == nil {
+		msg.Request.Header.Set("User-Agent", opts.DefaultUserAgent)
 	}
 
 	for k, v := range c.Options.DefaultHeaders {
-		evt.Request.Header.Set(k, v)
+		msg.Request.Header.Set(k, v)
 	}
 
 	for k, v := range req.Header {
-		evt.Request.Header.Set(k, v[0])
+		msg.Request.Header.Set(k, v[0])
 	}
 
-	c.cookieJarMutex.RLock()
-	for k, v := range c.cookieJar {
-		if ContainsCookie(evt.Request, k) {
+	for k, v := range c.GetCookieJar() {
+		if ContainsCookie(msg.Request, k) {
 			continue
 		}
-		evt.Request.AddCookie(&http.Cookie{Name: k, Value: v})
+		msg.Request.AddCookie(&http.Cookie{Name: k, Value: v})
 	}
-	c.cookieJarMutex.RUnlock()
 
-	opts.CacheBusting.Apply(evt.Request)
+	opts.CacheBusting.Apply(msg.Request)
 
 	var start time.Time
 	trace := &httptrace.ClientTrace{
@@ -148,124 +163,21 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts *HttpOptions) HttpE
 		},
 		GotFirstResponseByte: func() {
 			// record when the first byte of the response was received
-			evt.Duration = time.Since(start)
+			msg.Duration = time.Since(start)
 		},
 	}
 
-	evt.Request = evt.Request.WithContext(httptrace.WithClientTrace(c.context, trace))
+	msg.Request = msg.Request.WithContext(httptrace.WithClientTrace(c.context, trace))
 
-	var err error
-	if opts.SNI != "" {
-		sniClient := createInternalHttpClient(*opts)
+	c.ThreadPool.queuedRequestC <- struct {
+		req  *MessageDuplex
+		opts HttpOptions
+	}{msg, opts}
 
-		evt.Response, err = sniClient.Do(evt.Request)
-	} else {
-		evt.Response, err = c.client.Do(evt.Request)
-	}
-
-	c.EventLog = append(c.EventLog, &evt)
-
-	if err != nil {
-		return c.handleError(evt, err)
-	}
-
-	gologger.Debug().Msgf("%s %s %d\n", evt.Request.URL.String(), evt.Response.Status, evt.Response.ContentLength)
-
-	if c.Options.MaintainCookieJar && evt.Response.Cookies() != nil {
-		for _, cookie := range evt.Response.Cookies() {
-			c.cookieJarMutex.Lock()
-			if c.cookieJar[cookie.Name] != cookie.Value {
-				c.cookieJar[cookie.Name] = cookie.Value
-			}
-			c.cookieJarMutex.Unlock()
-		}
-	}
-
-	if evt.Response.StatusCode >= 300 && evt.Response.StatusCode <= 399 {
-		absRedirect := GetRedirectLocation(evt.Response)
-
-		evt.CrossOriginRedirect = IsCrossOrigin(evt.Request.URL.String(), absRedirect)
-		evt.CrossSiteRedirect = IsCrossSite(evt.Request.URL.String(), absRedirect)
-
-		if opts.PreventCrossOriginRedirects && evt.CrossOriginRedirect {
-			return evt
-		}
-
-		if opts.PreventCrossSiteRedirects && evt.CrossSiteRedirect {
-			return evt
-		}
-
-		// if evt.IsRedirectLoop() {
-		// 	evt.RedirectionLoop = true
-		// 	return evt
-		// }
-
-		opts.currentDepth++
-		if opts.currentDepth > opts.MaxRedirects {
-			evt.MaxRedirectsExheeded = true
-			return evt
-		}
-
-		if !opts.FollowRedirects {
-			return evt
-		}
-
-		redirectedReq := req.Clone(c.context)
-		absRedirectUrl, _ := url.Parse(absRedirect)
-		redirectedReq.Host = absRedirectUrl.Host
-		redirectedReq.URL, _ = url.Parse(absRedirect)
-
-		newEvt := c.SendWithOptions(redirectedReq, opts)
-		newEvt.AddRedirect(&evt)
-
-		c.EventLog = append(c.EventLog, &newEvt)
-
-		return newEvt
-	}
-
-	c.errorMutex.Lock()
-	if evt.TransportError != NoError || evt.Response.StatusCode >= 400 {
-		c.totalErrors += 1
-		c.errorLog["GENERAL"] += 1
-	} else {
-		c.totalSuccessful += 1
-		c.errorLog["GENERAL"] = 0
-	}
-
-	if c.Options.ConsecutiveErrorThreshold != 0 &&
-		c.errorLog["GENERAL"] > c.Options.ConsecutiveErrorThreshold {
-		gologger.Fatal().Msgf("Exceeded %d consecutive errors threshold, exiting.", c.Options.ConsecutiveErrorThreshold)
-		os.Exit(1)
-	}
-	c.errorMutex.Unlock()
-
-	if c.Options.ErrorPercentageThreshold != 0 &&
-		c.totalSuccessful+c.totalErrors > 40 &&
-		(c.totalSuccessful == 0 || int(100.0/(float64((c.totalSuccessful+c.totalErrors))/float64(c.totalErrors))) > c.Options.ErrorPercentageThreshold) {
-		gologger.Fatal().Msgf("%d errors out of %d requests exceeded %d%% error threshold, exiting.", c.totalErrors, c.totalSuccessful+c.totalErrors, c.Options.ErrorPercentageThreshold)
-		os.Exit(1)
-	}
-
-	if evt.Response.StatusCode == 429 {
-		if opts.AutoRateThrottle {
-			opts.Delay.Max += 0.1
-			opts.Delay.Min = opts.Delay.Max - 0.1
-		}
-
-		if opts.ReplayRateLimitted {
-			replayReq := evt.Request.Clone(c.context)
-			evt = c.SendWithOptions(replayReq, opts)
-		}
-
-		evt.RateLimited = true
-	}
-
-	c.EventLog = append(c.EventLog, &evt)
-
-	return evt
+	return msg
 }
 
-func (c *HttpClient) SendRaw(rawreq string, baseUrl string) HttpEvent {
+func (c *HttpClient) SendRaw(rawreq string, baseUrl string) *MessageDuplex {
 	rawhttpOptions := rawhttp.DefaultOptions
 	rawhttpOptions.AutomaticHostHeader = false
 	rawhttpOptions.CustomRawBytes = []byte(rawreq)
@@ -273,18 +185,18 @@ func (c *HttpClient) SendRaw(rawreq string, baseUrl string) HttpEvent {
 	defer httpclient.Close()
 
 	var err error
-	evt := HttpEvent{}
+	evt := MessageDuplex{}
 	evt.Response, err = httpclient.DoRaw("GET", baseUrl, "", nil, nil)
 	if err != nil {
 		gologger.Warning().Msgf("Encountered error while sending raw request: %s", err)
 	}
 
-	c.EventLog = append(c.EventLog, &evt)
+	c.MessageLog = append(c.MessageLog, &evt)
 
-	return evt
+	return &evt
 }
 
-func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts *HttpOptions) HttpEvent {
+func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts HttpOptions) *MessageDuplex {
 	rawhttpOptions := rawhttp.DefaultOptions
 	rawhttpOptions.Timeout = time.Duration(opts.Timeout * int(time.Second))
 	rawhttpOptions.FollowRedirects = opts.FollowRedirects
@@ -296,7 +208,7 @@ func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts *Htt
 	defer httpclient.Close()
 
 	var err error
-	evt := HttpEvent{}
+	evt := MessageDuplex{}
 	for i := 0; i < opts.RetryCount; i++ {
 		evt.Response, err = httpclient.DoRaw("GET", baseUrl, "", nil, nil)
 		if err == nil {
@@ -306,9 +218,9 @@ func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts *Htt
 		gologger.Warning().Msgf("Encountered error while sending raw request: %s", err)
 	}
 
-	c.EventLog = append(c.EventLog, &evt)
+	c.MessageLog = append(c.MessageLog, &evt)
 
-	return evt
+	return &evt
 }
 
 func (c *HttpClient) sleepIfNeeded(delay Range) {
@@ -337,9 +249,9 @@ func GetRedirectLocation(resp *http.Response) string {
 	return ToAbsolute(resp.Request.URL.String(), redirectLocation)
 }
 
-func (c *HttpClient) ConnectRequest(proxyUrl *url.URL, destUrl *url.URL, opts *HttpOptions) HttpEvent {
-	evt := HttpEvent{}
-	c.EventLog = append(c.EventLog, &evt)
+func (c *HttpClient) ConnectRequest(proxyUrl *url.URL, destUrl *url.URL, opts HttpOptions) *MessageDuplex {
+	evt := MessageDuplex{}
+	c.MessageLog = append(c.MessageLog, &evt)
 
 	proxyAddr := proxyUrl.Host
 	if proxyUrl.Port() == "" {
@@ -361,14 +273,14 @@ func (c *HttpClient) ConnectRequest(proxyUrl *url.URL, destUrl *url.URL, opts *H
 	conn, err := net.Dial("tcp", proxyAddr)
 	if err != nil {
 		gologger.Error().Msgf("dialing proxy %s failed: %v", proxyAddr, err)
-		return evt
+		return &evt
 	}
 	fmt.Fprintf(conn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\nProxy-Authorization: basic aGVsbG86d29ybGQ=\r\n\r\n", destUrl.Host, destUrl.Host)
 	br := bufio.NewReader(conn)
 	evt.Response, err = http.ReadResponse(br, nil)
 	if err != nil {
 		// connect check failed, ignore error
-		return evt
+		return &evt
 	}
 	// It's safe to discard the bufio.Reader here and return the
 	// original TCP conn directly because we only use this for
@@ -377,12 +289,12 @@ func (c *HttpClient) ConnectRequest(proxyUrl *url.URL, destUrl *url.URL, opts *H
 	if br.Buffered() > 0 {
 		gologger.Error().Msgf("unexpected %d bytes of buffered data from CONNECT proxy %q", br.Buffered(), proxyAddr)
 	}
-	return evt
+	return &evt
 }
 
-func ContainsCookie(req *http.Request, cookieName string) bool {
-	for _, cookie := range req.Cookies() {
-		if cookie.Name == cookieName {
+func Contains[T int | string](s []T, e T) bool {
+	for _, a := range s {
+		if a == e {
 			return true
 		}
 	}

@@ -1,8 +1,8 @@
 package httpc
 
-type EventLog []*HttpEvent
+type MessageLog []*MessageDuplex
 
-func (log EventLog) Find(where func(evt *HttpEvent) bool) *HttpEvent {
+func (log MessageLog) Find(where func(evt *MessageDuplex) bool) *MessageDuplex {
 	for _, evt := range log {
 		if where(evt) {
 			return evt
@@ -12,8 +12,8 @@ func (log EventLog) Find(where func(evt *HttpEvent) bool) *HttpEvent {
 	return nil
 }
 
-func (log EventLog) Search(where func(evt *HttpEvent) bool) EventLog {
-	found := EventLog{}
+func (log MessageLog) Search(where func(evt *MessageDuplex) bool) MessageLog {
+	found := MessageLog{}
 	for _, evt := range log {
 		for {
 			if where(evt) {
@@ -31,7 +31,7 @@ func (log EventLog) Search(where func(evt *HttpEvent) bool) EventLog {
 	return found
 }
 
-func (log EventLog) Select(filter func(evt *HttpEvent) string) []string {
+func (log MessageLog) Select(filter func(evt *MessageDuplex) string) []string {
 	selected := []string{}
 	for _, evt := range log {
 		for {

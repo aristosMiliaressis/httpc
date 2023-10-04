@@ -15,12 +15,13 @@ HTTP Client Library for security tooling
 - [x] ability to prevent cross origin redirects
 - [x] ability to prevent cross site redirects
 
+- [x] built in concurency support
+
 - [x] rate throttling option
 - [x] jitter option
 - [x] option to replay ratelimitted requests
 - [x] auto rate throttling based on 429 responses
 - [ ] auto rate throttling based on ratelimit headers
-- [ ] built in concurency support
 
 - [x] ip ban detection
 - [ ] apigateway based ip rotation (requires aws creds)

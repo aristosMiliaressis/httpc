@@ -13,6 +13,8 @@ func (c *HttpClient) enableIpRotate(url *url.URL) error {
 
 	baseUrl := GetBaseUrl(url)
 
+	c.errorMutex.Lock()
+
 	if c.apiGateways[baseUrl.String()] != nil {
 		return nil
 	}

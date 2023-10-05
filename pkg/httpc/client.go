@@ -21,11 +21,10 @@ import (
 )
 
 type HttpClient struct {
-	context context.Context
-	cancel  context.CancelFunc
-	client  http.Client
-	Options HttpOptions
-	//Rate    *RateThrottle
+	context    context.Context
+	cancel     context.CancelFunc
+	client     http.Client
+	Options    HttpOptions
 	ThreadPool *ThreadPool
 
 	MessageLog MessageLog
@@ -46,25 +45,16 @@ func NewHttpClient(opts HttpOptions, ctx context.Context) *HttpClient {
 	ctx, cancel := context.WithCancel(ctx)
 
 	c := HttpClient{
-		context: ctx,
-		cancel:  cancel,
-		Options: opts,
-		//Rate:      newRateThrottle(0),
-		ThreadPool: &ThreadPool{
-			maxThreads: opts.MaxThreads,
-			queuedRequestC: make(chan struct {
-				req  *MessageDuplex
-				opts HttpOptions
-			}),
-		},
+		context:   ctx,
+		cancel:    cancel,
+		Options:   opts,
 		client:    createInternalHttpClient(opts),
 		errorLog:  map[string]int{},
 		cookieJar: map[string]string{},
 	}
 
-	c.ThreadPool.SendRequestCallback = c.HandleRequest
-
-	c.ThreadPool.Run()
+	c.ThreadPool = c.NewThreadPool()
+	go c.ThreadPool.Run()
 
 	return &c
 }
@@ -95,8 +85,9 @@ func createInternalHttpClient(opts HttpOptions) http.Client {
 		CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse },
 		Timeout:       time.Duration(time.Duration(opts.Timeout) * time.Second),
 		Transport: &http.Transport{
-			Proxy:               proxyURL,
-			ForceAttemptHTTP2:   opts.ForceAttemptHTTP2,
+			Proxy:             proxyURL,
+			ForceAttemptHTTP2: opts.ForceAttemptHTTP2,
+			//DisableKeepAlives:   true,
 			DisableCompression:  true,
 			MaxIdleConns:        1000,
 			MaxIdleConnsPerHost: 500,

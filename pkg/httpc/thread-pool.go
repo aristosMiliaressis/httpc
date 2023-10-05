@@ -1,20 +1,37 @@
 package httpc
 
 import (
+	"context"
 	"net/url"
 	"os"
+	"sync/atomic"
+	"time"
 
 	"github.com/projectdiscovery/gologger"
 )
 
 type ThreadPool struct {
-	maxThreads int
+	threadCount atomic.Int64
+	Rate        *RateThrottle
+	context     context.Context
 
 	queuedRequestC chan struct {
 		req  *MessageDuplex
 		opts HttpOptions
 	}
-	SendRequestCallback func(*MessageDuplex, HttpOptions)
+	sendRequestCallback func(*MessageDuplex, HttpOptions)
+}
+
+func (c *HttpClient) NewThreadPool() *ThreadPool {
+	return &ThreadPool{
+		context:             c.context,
+		sendRequestCallback: c.HandleRequest,
+		Rate:                newRateThrottle(c.Options.ReqsPerSecond),
+		queuedRequestC: make(chan struct {
+			req  *MessageDuplex
+			opts HttpOptions
+		}),
+	}
 }
 
 type RequestQueue struct {
@@ -22,12 +39,31 @@ type RequestQueue struct {
 }
 
 func (tp *ThreadPool) Run() {
-	for i := 1; i <= tp.maxThreads; i++ {
-		go func(workerID int) {
-			for uow := range tp.queuedRequestC {
-				tp.SendRequestCallback(uow.req, uow.opts)
-			}
-		}(i)
+
+	maxThreads := 100
+
+	for i := 1; true; i++ {
+
+		if tp.Rate.CurrentRate() < int64(tp.Rate.rate) && int(tp.threadCount.Load()) < maxThreads {
+
+			tp.threadCount.Add(1)
+
+			go func(workerID int) {
+				for uow := range tp.queuedRequestC {
+
+					<-tp.Rate.RateLimiter.C
+					tp.sendRequestCallback(uow.req, uow.opts)
+					tp.Rate.Tick(time.Now())
+
+					if tp.Rate.CurrentRate() > int64(tp.Rate.rate) && int(tp.threadCount.Load()) > 1 {
+						tp.threadCount.Add(-1)
+						return
+					}
+				}
+			}(i)
+		}
+
+		<-time.After(time.Millisecond * 500)
 	}
 }
 
@@ -130,8 +166,9 @@ func (c *HttpClient) HandleRequest(msg *MessageDuplex, opts HttpOptions) {
 
 	if msg.Response.StatusCode == 429 {
 		if opts.AutoRateThrottle {
-			opts.Delay.Max += 0.1
-			opts.Delay.Min = opts.Delay.Max - 0.1
+			// opts.Delay.Max += 0.1
+			// opts.Delay.Min = opts.Delay.Max - 0.1
+			c.ThreadPool.Rate.ChangeRate(c.ThreadPool.Rate.rate - 1)
 		}
 
 		if opts.ReplayRateLimitted {

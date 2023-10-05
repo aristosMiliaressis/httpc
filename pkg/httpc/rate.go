@@ -7,29 +7,21 @@ import (
 )
 
 type RateThrottle struct {
-	RateLimiter    *time.Ticker // ticks on rps based interval?
-	rateCounter    *ring.Ring   // Tick() called manually?
-	reqPerSec      int
-	rateMutex      sync.Mutex
-	lastAdjustment time.Time
+	rate int
+
+	RateLimiter *time.Ticker
+	rateCounter *ring.Ring
+	rateMutex   sync.Mutex
 }
 
 func newRateThrottle(rate int) *RateThrottle {
 	r := &RateThrottle{
-		reqPerSec:      rate,
-		lastAdjustment: time.Now(),
+		rate: rate,
 	}
 
-	if r.reqPerSec > 0 {
-		ratemicros := 1000000 / r.reqPerSec
-		r.RateLimiter = time.NewTicker(time.Microsecond * time.Duration(ratemicros))
-		r.rateCounter = ring.New(r.reqPerSec * 5)
-		return r
-	}
-
-	r.RateLimiter = time.NewTicker(time.Microsecond * 1)
-	r.rateCounter = ring.New(5)
-
+	ratemicros := 1000000/r.rate - 50000/r.rate
+	r.RateLimiter = time.NewTicker(time.Microsecond * time.Duration(ratemicros))
+	r.rateCounter = ring.New(r.rate * 5)
 	return r
 }
 
@@ -64,16 +56,16 @@ func (r *RateThrottle) CurrentRate() int64 {
 }
 
 func (r *RateThrottle) ChangeRate(rate int) {
-	r.reqPerSec = rate
-	ratemicros := 1000000 / rate
+	r.rate = rate
+	ratemicros := 1000000/r.rate - 50000/r.rate
 
 	r.RateLimiter.Stop()
 	r.RateLimiter = time.NewTicker(time.Microsecond * time.Duration(ratemicros))
 	r.rateCounter = ring.New(rate * 5)
 }
 
-// rateTick adds a new duration measurement tick to rate counter
-func (r *RateThrottle) tick(end time.Time) {
+// rateTick adds a new duration measurement Tick to rate counter
+func (r *RateThrottle) Tick(end time.Time) {
 	r.rateMutex.Lock()
 	defer r.rateMutex.Unlock()
 

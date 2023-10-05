@@ -69,9 +69,9 @@ func (c *HttpClient) verifyIpBan(msg *MessageDuplex) error {
 
 	messages := c.MessageLog.Search(func(e *MessageDuplex) bool {
 		if msg.Response == nil {
-			return e.TransportError != msg.TransportError
+			return e.TransportError != msg.TransportError && e.Request != nil
 		} else {
-			return e.Response != nil && e.Response.StatusCode != msg.Response.StatusCode
+			return e.Response != nil && e.Response.StatusCode != msg.Response.StatusCode && e.Request != nil
 		}
 	})
 

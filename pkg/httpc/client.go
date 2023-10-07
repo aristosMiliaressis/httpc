@@ -16,7 +16,6 @@ import (
 
 	"github.com/aristosMiliaressis/go-ip-rotate/pkg/iprotate"
 	"github.com/projectdiscovery/gologger"
-	"github.com/projectdiscovery/gologger/levels"
 	"github.com/projectdiscovery/rawhttp"
 )
 
@@ -70,11 +69,6 @@ func createInternalHttpClient(opts HttpOptions) http.Client {
 		if err == nil {
 			proxyURL = http.ProxyURL(pu)
 		}
-	}
-
-	gologger.DefaultLogger.SetMaxLevel(levels.LevelVerbose)
-	if !opts.DebugLogging {
-		gologger.DefaultLogger.SetMaxLevel(levels.LevelWarning)
 	}
 
 	if opts.ForceAttemptHTTP1 {

@@ -21,7 +21,6 @@ type HttpOptions struct {
 	IpBanDetectionThreshold     int
 	IpRotateOnIpBan             bool
 	currentDepth                int
-	DebugLogging                bool
 	ErrorPercentageThreshold    int
 	ConsecutiveErrorThreshold   int
 	RetryCount                  int

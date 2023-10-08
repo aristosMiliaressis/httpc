@@ -2,6 +2,7 @@ package httpc
 
 type HttpOptions struct {
 	DefaultUserAgent            string
+	RandomizeUserAgent          bool
 	DefaultHeaders              map[string]string
 	ProxyUrl                    string
 	ReqsPerSecond               int

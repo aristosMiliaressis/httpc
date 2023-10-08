@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/aristosMiliaressis/go-ip-rotate/pkg/iprotate"
+	"github.com/corpix/uarand"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/rawhttp"
 )
@@ -119,7 +120,9 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts HttpOptions) *Messa
 		msg.Request.Header.Del("Transfer-Encoding")
 	}
 
-	if msg.Request.Header["User-Agent"] == nil {
+	if c.Options.RandomizeUserAgent {
+		msg.Request.Header.Set("User-Agent", uarand.GetRandom())
+	} else if msg.Request.Header["User-Agent"] == nil {
 		msg.Request.Header.Set("User-Agent", opts.DefaultUserAgent)
 	}
 

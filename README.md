@@ -34,10 +34,10 @@ HTTP Client Library for security tooling.
 - [ ] apigateway based ip rotation (requires aws creds)  
 <br>
 
-- [x] Raw http requests
+- [x] Raw HTTP/1 requests
+- [ ] Raw HTTP/2 requests
+- [ ] Raw HTTP/3 requests
+- [x] option to ignore ALPN and attempt HTTP/1 or HTTP/2
 - [x] SNI injection      
-- [x] CONNECT method support  
+- [x] CONNECT method support 
 <br>
-
-- [ ] malformed HTTP/2 request support
-- [ ] malformed HTTP/3 request support

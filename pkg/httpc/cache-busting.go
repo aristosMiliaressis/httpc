@@ -156,7 +156,7 @@ func (opts CacheBustingOptions) Clear(req *http.Request) {
 }
 
 func RandomString(length int) string {
-	var chars = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	var chars = []rune("abcdefghijklmnopqrstuvwxyz")
 	s := make([]rune, length)
 	for i := range s {
 		s[i] = chars[rand.Intn(len(chars))]

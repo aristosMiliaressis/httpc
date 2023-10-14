@@ -125,7 +125,6 @@ func (c *HttpClient) HandleRequest(msg *MessageDuplex, opts HttpOptions) {
 		}
 
 		redirectedReq := msg.Request.Clone(c.context)
-
 		redirectedReq.Header.Del("Cookie") // TODO: test this <-----
 		opts.CacheBusting.Clear(redirectedReq)
 
@@ -135,6 +134,7 @@ func (c *HttpClient) HandleRequest(msg *MessageDuplex, opts HttpOptions) {
 
 		newMsg := c.SendWithOptions(redirectedReq, opts)
 		newMsg.AddRedirect(msg)
+		<-newMsg.Resolved
 
 		c.MessageLog = append(c.MessageLog, newMsg)
 

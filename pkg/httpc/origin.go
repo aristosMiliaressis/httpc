@@ -10,15 +10,7 @@ func IsCrossOrigin(urlA string, urlB string) bool {
 	a, _ := url.Parse(urlA)
 	b, _ := url.Parse(urlB)
 
-	if a.Host != b.Host {
-		return false
-	}
-
-	if a.Scheme != b.Scheme {
-		return false
-	}
-
-	return true
+	return a.Scheme != b.Scheme || a.Host != b.Host
 }
 
 func IsCrossSite(urlA string, urlB string) bool {

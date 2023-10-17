@@ -71,6 +71,6 @@ func simulateBrowserRequest(req *http.Request) {
 
 func addHeaderIfNotPresent(req *http.Request, name, value string) {
 	if req.Header.Get(name) == "" {
-		addHeaderIfNotPresent(req, name, value)
+		req.Header.Set(name, value)
 	}
 }

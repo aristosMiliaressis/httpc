@@ -114,16 +114,12 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts HttpOptions) *Messa
 		Resolved: make(chan bool, 1),
 	}
 
-	if opts.ForceAttemptHTTP2 {
-		msg.Request.Header.Del("Connection")
-		msg.Request.Header.Del("Upgrade")
-		msg.Request.Header.Del("Transfer-Encoding")
+	if c.Options.SimulateBrowserRequests {
+		simulateBrowserRequest(msg.Request)
 	}
 
 	if c.Options.RandomizeUserAgent {
 		msg.Request.Header.Set("User-Agent", uarand.GetRandom())
-	} else if msg.Request.Header["User-Agent"] == nil {
-		msg.Request.Header.Set("User-Agent", opts.DefaultUserAgent)
 	}
 
 	for k, v := range c.Options.DefaultHeaders {
@@ -132,6 +128,12 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts HttpOptions) *Messa
 
 	for k, v := range req.Header {
 		msg.Request.Header.Set(k, v[0])
+	}
+
+	if opts.ForceAttemptHTTP2 {
+		msg.Request.Header.Del("Connection")
+		msg.Request.Header.Del("Upgrade")
+		msg.Request.Header.Del("Transfer-Encoding")
 	}
 
 	for k, v := range c.GetCookieJar() {

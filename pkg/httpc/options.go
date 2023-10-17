@@ -1,7 +1,7 @@
 package httpc
 
 type HttpOptions struct {
-	DefaultUserAgent            string
+	SimulateBrowserRequests     bool
 	RandomizeUserAgent          bool
 	DefaultHeaders              map[string]string
 	ProxyUrl                    string
@@ -28,7 +28,7 @@ type HttpOptions struct {
 }
 
 var DefaultOptions = HttpOptions{
-	DefaultUserAgent:          "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1",
+	SimulateBrowserRequests:   true,
 	DefaultHeaders:            map[string]string{},
 	Timeout:                   10,
 	ReqsPerSecond:             10,

@@ -30,8 +30,11 @@ HTTP Client Library for security tooling.
 - [ ] auto rate throttling based on ratelimit headers  
 <br>
 
-- [ ] ip ban detection
-- [ ] apigateway based ip rotation (requires aws creds)  
+- [x] browser request simulation
+- [ ] jarm/ja3 emulation
+  - https://github.com/Danny-Dasilva/CycleTLS
+<br>
+
 <br>
 
 - [x] Raw HTTP/1 requests

@@ -24,7 +24,7 @@ type HttpClient struct {
 	context    context.Context
 	cancel     context.CancelFunc
 	client     http.Client
-	Options    HttpOptions
+	Options    ClientOptions
 	ThreadPool *ThreadPool
 
 	MessageLog MessageLog
@@ -41,7 +41,7 @@ type HttpClient struct {
 	apiGateways map[string]*iprotate.ApiEndpoint // make concurrent
 }
 
-func NewHttpClient(opts HttpOptions, ctx context.Context) *HttpClient {
+func NewHttpClient(opts ClientOptions, ctx context.Context) *HttpClient {
 	ctx, cancel := context.WithCancel(ctx)
 
 	c := HttpClient{
@@ -63,39 +63,39 @@ func (c *HttpClient) Close() {
 	close(c.ThreadPool.queuedRequestC)
 }
 
-func createInternalHttpClient(opts HttpOptions) http.Client {
+func createInternalHttpClient(opts ClientOptions) http.Client {
 	proxyURL := http.ProxyFromEnvironment
-	if len(opts.ProxyUrl) > 0 {
-		pu, err := url.Parse(opts.ProxyUrl)
+	if len(opts.Connection.ProxyUrl) > 0 {
+		pu, err := url.Parse(opts.Connection.ProxyUrl)
 		if err == nil {
 			proxyURL = http.ProxyURL(pu)
 		}
 	}
 
-	if opts.ForceAttemptHTTP1 {
+	if opts.Connection.ForceAttemptHTTP1 {
 		os.Setenv("GODEBUG", "http2client=0")
 	}
 
 	return http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse },
-		Timeout:       time.Duration(time.Duration(opts.Timeout) * time.Second),
+		Timeout:       time.Duration(time.Duration(opts.Performance.Timeout) * time.Second),
 		Transport: &http.Transport{
 			Proxy:             proxyURL,
-			ForceAttemptHTTP2: opts.ForceAttemptHTTP2,
+			ForceAttemptHTTP2: opts.Connection.ForceAttemptHTTP2,
 			//DisableKeepAlives:   true,
 			DisableCompression:  true,
 			MaxIdleConns:        1000,
 			MaxIdleConnsPerHost: 500,
 			MaxConnsPerHost:     500,
 			DialContext: (&net.Dialer{
-				Timeout: time.Duration(time.Duration(opts.Timeout) * time.Second),
+				Timeout: time.Duration(time.Duration(opts.Performance.Timeout) * time.Second),
 			}).DialContext,
-			TLSHandshakeTimeout: time.Duration(time.Duration(opts.Timeout) * time.Second),
+			TLSHandshakeTimeout: time.Duration(time.Duration(opts.Performance.Timeout) * time.Second),
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,
 				MinVersion:         tls.VersionSSL30,
 				Renegotiation:      tls.RenegotiateOnceAsClient,
-				ServerName:         opts.SNI,
+				ServerName:         opts.Connection.SNI,
 			},
 		},
 	}
@@ -105,9 +105,9 @@ func (c *HttpClient) Send(req *http.Request) *MessageDuplex {
 	return c.SendWithOptions(req, c.Options)
 }
 
-func (c *HttpClient) SendWithOptions(req *http.Request, opts HttpOptions) *MessageDuplex {
+func (c *HttpClient) SendWithOptions(req *http.Request, opts ClientOptions) *MessageDuplex {
 
-	c.sleepIfNeeded(opts.Delay)
+	c.sleepIfNeeded(opts.Performance.Delay)
 
 	msg := &MessageDuplex{
 		Request:  req.Clone(c.context),
@@ -130,7 +130,7 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts HttpOptions) *Messa
 		msg.Request.Header.Set(k, v[0])
 	}
 
-	if opts.ForceAttemptHTTP2 {
+	if opts.Connection.ForceAttemptHTTP2 {
 		msg.Request.Header.Del("Connection")
 		msg.Request.Header.Del("Upgrade")
 		msg.Request.Header.Del("Transfer-Encoding")
@@ -161,7 +161,7 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts HttpOptions) *Messa
 
 	c.ThreadPool.queuedRequestC <- struct {
 		req  *MessageDuplex
-		opts HttpOptions
+		opts ClientOptions
 	}{msg, opts}
 
 	return msg
@@ -186,12 +186,12 @@ func (c *HttpClient) SendRaw(rawreq string, baseUrl string) *MessageDuplex {
 	return &msg
 }
 
-func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts HttpOptions) *MessageDuplex {
+func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts ClientOptions) *MessageDuplex {
 	rawhttpOptions := rawhttp.DefaultOptions
-	rawhttpOptions.Timeout = time.Duration(opts.Timeout * int(time.Second))
-	rawhttpOptions.FollowRedirects = opts.FollowRedirects
-	rawhttpOptions.MaxRedirects = opts.MaxRedirects
-	rawhttpOptions.SNI = opts.SNI
+	rawhttpOptions.Timeout = time.Duration(opts.Performance.Timeout * int(time.Second))
+	rawhttpOptions.FollowRedirects = opts.Redirection.FollowRedirects
+	rawhttpOptions.MaxRedirects = opts.Redirection.MaxRedirects
+	rawhttpOptions.SNI = opts.Connection.SNI
 	rawhttpOptions.AutomaticHostHeader = false
 	rawhttpOptions.CustomRawBytes = []byte(rawreq)
 	httpclient := rawhttp.NewClient(rawhttpOptions)
@@ -199,12 +199,8 @@ func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts Http
 
 	var err error
 	msg := MessageDuplex{}
-	for i := 0; i < opts.RetryCount; i++ {
-		msg.Response, err = httpclient.DoRaw("GET", baseUrl, "", nil, nil)
-		if err == nil {
-			break
-		}
-
+	msg.Response, err = httpclient.DoRaw("GET", baseUrl, "", nil, nil)
+	if err != nil {
 		gologger.Warning().Msgf("Encountered error while sending raw request: %s", err)
 	}
 
@@ -239,7 +235,7 @@ func GetRedirectLocation(resp *http.Response) string {
 	return ToAbsolute(resp.Request.URL.String(), redirectLocation)
 }
 
-func (c *HttpClient) ConnectRequest(proxyUrl *url.URL, destUrl *url.URL, opts HttpOptions) *MessageDuplex {
+func (c *HttpClient) ConnectRequest(proxyUrl *url.URL, destUrl *url.URL, opts ClientOptions) *MessageDuplex {
 	msg := MessageDuplex{}
 	c.MessageLog = append(c.MessageLog, &msg)
 

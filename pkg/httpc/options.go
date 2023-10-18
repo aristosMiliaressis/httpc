@@ -1,51 +1,70 @@
 package httpc
 
-type HttpOptions struct {
-	SimulateBrowserRequests     bool
-	RandomizeUserAgent          bool
-	DefaultHeaders              map[string]string
-	ProxyUrl                    string
-	ReqsPerSecond               int
-	Timeout                     int
-	MaintainCookieJar           bool
+type ClientOptions struct {
+	SimulateBrowserRequests bool
+	RandomizeUserAgent      bool
+	MaintainCookieJar       bool
+	DefaultHeaders          map[string]string
+
+	Connection    ConnectionOptions
+	CacheBusting  CacheBustingOptions
+	Redirection   RedirectionOptions
+	Performance   PerformanceOptions
+	ErrorHandling ErrorHandlingOptions
+}
+
+type RedirectionOptions struct {
 	FollowRedirects             bool
 	MaxRedirects                int
 	PreventCrossSiteRedirects   bool
 	PreventCrossOriginRedirects bool
-	Delay                       Range
-	AutoRateThrottle            bool
-	ReplayRateLimitted          bool
-	CacheBusting                CacheBustingOptions
-	ForceAttemptHTTP1           bool
-	ForceAttemptHTTP2           bool
-	SNI                         string
-	IpBanDetectionThreshold     int
-	IpRotateOnIpBan             bool
 	currentDepth                int
-	ErrorPercentageThreshold    int
-	ConsecutiveErrorThreshold   int
-	RetryCount                  int
 }
 
-var DefaultOptions = HttpOptions{
-	SimulateBrowserRequests:   true,
-	DefaultHeaders:            map[string]string{},
-	Timeout:                   10,
-	ReqsPerSecond:             10,
-	MaintainCookieJar:         true,
-	FollowRedirects:           true,
-	PreventCrossSiteRedirects: true,
-	MaxRedirects:              20,
-	Delay:                     Range{Min: 0, Max: 0},
-	AutoRateThrottle:          true,
-	ReplayRateLimitted:        true,
-	IpBanDetectionThreshold:   4,
-	ErrorPercentageThreshold:  10,
-	ConsecutiveErrorThreshold: 50,
-	RetryCount:                1,
+type ErrorHandlingOptions struct {
+	ErrorPercentageThreshold  int
+	ConsecutiveErrorThreshold int
+	IpRotateOnIpBan           bool
+}
+
+type PerformanceOptions struct {
+	Timeout            int
+	RequestsPerSecond  int
+	Delay              Range
+	AutoRateThrottle   bool
+	ReplayRateLimitted bool
+}
+
+type ConnectionOptions struct {
+	ProxyUrl          string
+	ForceAttemptHTTP1 bool
+	ForceAttemptHTTP2 bool
+	SNI               string
 }
 
 type Range struct {
 	Min float64
 	Max float64
+}
+
+var DefaultOptions = ClientOptions{
+	SimulateBrowserRequests: true,
+	MaintainCookieJar:       true,
+	DefaultHeaders:          map[string]string{},
+	Redirection: RedirectionOptions{
+		FollowRedirects:           true,
+		PreventCrossSiteRedirects: true,
+		MaxRedirects:              10,
+	},
+	Performance: PerformanceOptions{
+		Timeout:            10,
+		RequestsPerSecond:  10,
+		AutoRateThrottle:   true,
+		ReplayRateLimitted: true,
+		Delay:              Range{Min: 0, Max: 0},
+	},
+	ErrorHandling: ErrorHandlingOptions{
+		ErrorPercentageThreshold:  0,
+		ConsecutiveErrorThreshold: 0,
+	},
 }

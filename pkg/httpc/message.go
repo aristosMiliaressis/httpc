@@ -16,7 +16,6 @@ type MessageDuplex struct {
 	// Redirect Chain LinkedList
 	Prev *MessageDuplex
 
-	RedirectionLoop      bool
 	MaxRedirectsExheeded bool
 	CrossOriginRedirect  bool
 	CrossSiteRedirect    bool

@@ -7,7 +7,6 @@ import (
 )
 
 // TODO: update request url for next requests
-
 func (c *HttpClient) enableIpRotate(url *url.URL) error {
 	var err error
 

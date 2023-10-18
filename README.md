@@ -28,6 +28,7 @@ HTTP Client Library for security tooling.
 - [x] option to replay ratelimitted requests
 - [x] auto rate throttling based on 429 responses
 - [ ] auto rate throttling based on ratelimit headers  
+- [ ] adjust request rate according to response rate
 <br>
 
 - [x] browser request simulation

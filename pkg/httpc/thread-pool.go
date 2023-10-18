@@ -1,12 +1,18 @@
 package httpc
 
 import (
+	"bytes"
+	"compress/flate"
+	"compress/gzip"
 	"context"
+	"io"
+	"io/ioutil"
 	"net/url"
 	"os"
 	"sync/atomic"
 	"time"
 
+	"github.com/andybalholm/brotli"
 	"github.com/projectdiscovery/gologger"
 )
 
@@ -17,19 +23,19 @@ type ThreadPool struct {
 
 	queuedRequestC chan struct {
 		req  *MessageDuplex
-		opts HttpOptions
+		opts ClientOptions
 	}
-	sendRequestCallback func(*MessageDuplex, HttpOptions)
+	sendRequestCallback func(*MessageDuplex, ClientOptions)
 }
 
 func (c *HttpClient) NewThreadPool() *ThreadPool {
 	return &ThreadPool{
 		context:             c.context,
 		sendRequestCallback: c.HandleRequest,
-		Rate:                newRateThrottle(c.Options.ReqsPerSecond),
+		Rate:                newRateThrottle(c.Options.Performance.RequestsPerSecond),
 		queuedRequestC: make(chan struct {
 			req  *MessageDuplex
-			opts HttpOptions
+			opts ClientOptions
 		}),
 	}
 }
@@ -38,6 +44,8 @@ type RequestQueue struct {
 	Requests []MessageDuplex
 }
 
+// TODO: look into https://www.openmymind.net/Leaking-Goroutines/
+// https://medium.com/code-chasm/go-concurrency-pattern-worker-pool-a437117025b1
 func (tp *ThreadPool) Run() {
 
 	maxThreads := 100
@@ -67,18 +75,40 @@ func (tp *ThreadPool) Run() {
 	}
 }
 
-func (c *HttpClient) HandleRequest(msg *MessageDuplex, opts HttpOptions) {
+func (c *HttpClient) HandleRequest(msg *MessageDuplex, opts ClientOptions) {
 	defer func() { msg.Resolved <- true }()
 
 	var err error
-	if opts.SNI != "" {
+	if opts.Connection.SNI != "" {
 		sniClient := createInternalHttpClient(opts)
 
 		msg.Response, err = sniClient.Do(msg.Request)
 	} else {
 		msg.Response, err = c.client.Do(msg.Request)
 	}
-	//
+
+	var body []byte
+	switch msg.Response.Header.Get("Content-Encoding") {
+	case "gzip":
+		reader, _ := gzip.NewReader(msg.Response.Body)
+		body, err = ioutil.ReadAll(reader)
+		defer reader.Close()
+	case "br":
+		reader := brotli.NewReader(msg.Response.Body)
+		body, err = ioutil.ReadAll(reader)
+	case "deflate":
+		reader := flate.NewReader(msg.Response.Body)
+		body, err = ioutil.ReadAll(reader)
+		defer reader.Close()
+	default:
+		body, err = io.ReadAll(msg.Response.Body)
+	}
+	if err != nil {
+		gologger.Error().Msgf("Error while reading response %s", err)
+		return
+	}
+
+	msg.Response.Body = io.NopCloser(bytes.NewBuffer(body))
 
 	c.MessageLog = append(c.MessageLog, msg)
 
@@ -101,26 +131,21 @@ func (c *HttpClient) HandleRequest(msg *MessageDuplex, opts HttpOptions) {
 		msg.CrossOriginRedirect = IsCrossOrigin(msg.Request.URL.String(), absRedirect)
 		msg.CrossSiteRedirect = IsCrossSite(msg.Request.URL.String(), absRedirect)
 
-		if opts.PreventCrossOriginRedirects && msg.CrossOriginRedirect {
+		if opts.Redirection.PreventCrossOriginRedirects && msg.CrossOriginRedirect {
 			return
 		}
 
-		if opts.PreventCrossSiteRedirects && msg.CrossSiteRedirect {
+		if opts.Redirection.PreventCrossSiteRedirects && msg.CrossSiteRedirect {
 			return
 		}
 
-		// if msg.IsRedirectLoop() {
-		// 	msg.RedirectionLoop = true
-		// 	return msg
-		// }
-
-		opts.currentDepth++
-		if opts.currentDepth > opts.MaxRedirects {
+		opts.Redirection.currentDepth++
+		if opts.Redirection.currentDepth > opts.Redirection.MaxRedirects {
 			msg.MaxRedirectsExheeded = true
 			return
 		}
 
-		if !opts.FollowRedirects {
+		if !opts.Redirection.FollowRedirects {
 			return
 		}
 
@@ -150,28 +175,26 @@ func (c *HttpClient) HandleRequest(msg *MessageDuplex, opts HttpOptions) {
 		c.errorLog["GENERAL"] = 0
 	}
 
-	if c.Options.ConsecutiveErrorThreshold != 0 &&
-		c.errorLog["GENERAL"] > c.Options.ConsecutiveErrorThreshold {
-		gologger.Fatal().Msgf("Exceeded %d consecutive errors threshold, exiting.", c.Options.ConsecutiveErrorThreshold)
+	if c.Options.ErrorHandling.ConsecutiveErrorThreshold != 0 &&
+		c.errorLog["GENERAL"] > c.Options.ErrorHandling.ConsecutiveErrorThreshold {
+		gologger.Fatal().Msgf("Exceeded %d consecutive errors threshold, exiting.", c.Options.ErrorHandling.ConsecutiveErrorThreshold)
 		os.Exit(1)
 	}
 	c.errorMutex.Unlock()
 
-	if c.Options.ErrorPercentageThreshold != 0 &&
+	if c.Options.ErrorHandling.ErrorPercentageThreshold != 0 &&
 		c.totalSuccessful+c.totalErrors > 40 &&
-		(c.totalSuccessful == 0 || int(100.0/(float64((c.totalSuccessful+c.totalErrors))/float64(c.totalErrors))) > c.Options.ErrorPercentageThreshold) {
-		gologger.Fatal().Msgf("%d errors out of %d requests exceeded %d%% error threshold, exiting.", c.totalErrors, c.totalSuccessful+c.totalErrors, c.Options.ErrorPercentageThreshold)
+		(c.totalSuccessful == 0 || int(100.0/(float64((c.totalSuccessful+c.totalErrors))/float64(c.totalErrors))) > c.Options.ErrorHandling.ErrorPercentageThreshold) {
+		gologger.Fatal().Msgf("%d errors out of %d requests exceeded %d%% error threshold, exiting.", c.totalErrors, c.totalSuccessful+c.totalErrors, c.Options.ErrorHandling.ErrorPercentageThreshold)
 		os.Exit(1)
 	}
 
-	if msg.Response.StatusCode == 429 {
-		if opts.AutoRateThrottle {
-			// opts.Delay.Max += 0.1
-			// opts.Delay.Min = opts.Delay.Max - 0.1
+	if msg.Response.StatusCode == 429 || msg.Response.StatusCode == 529 {
+		if opts.Performance.AutoRateThrottle {
 			c.ThreadPool.Rate.ChangeRate(c.ThreadPool.Rate.rate - 1)
 		}
 
-		if opts.ReplayRateLimitted {
+		if opts.Performance.ReplayRateLimitted {
 			replayReq := msg.Request.Clone(c.context)
 			msg = c.SendWithOptions(replayReq, opts)
 		}

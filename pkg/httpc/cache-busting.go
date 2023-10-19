@@ -62,6 +62,8 @@ func (opts CacheBustingOptions) Apply(req *http.Request) {
 		fmt.Println("BUSTING")
 		if param == "" {
 			fmt.Println("BUSTING2")
+			fmt.Println(req.URL.String())
+
 			query := req.URL.Query()
 			query.Add(DefaultCacheBusterParam, opts.getCacheBuster())
 			req.URL.RawQuery = query.Encode()

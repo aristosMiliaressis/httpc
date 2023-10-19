@@ -50,25 +50,15 @@ func (opts CacheBustingOptions) Apply(req *http.Request) {
 		param := req.URL.Query().Get(opts.QueryParam)
 		// if param already exists, dont replace it
 		if param == "" {
-			query := req.URL.Query()
-			query.Add(opts.QueryParam, opts.getCacheBuster())
-			req.URL.RawQuery = query.Encode()
+			req.URL.RawQuery = fmt.Sprintf("%s&%s=%s", req.URL.RawQuery, opts.QueryParam, opts.getCacheBuster())
 		}
 	}
 
 	if opts.Query {
 		param := req.URL.Query().Get(DefaultCacheBusterParam)
 		// if param already exists, dont replace it
-		fmt.Println("BUSTING")
 		if param == "" {
-			fmt.Println("BUSTING2")
-			fmt.Println(req.URL.String())
-
-			// query := req.URL.Query()
-			// query.Add(DefaultCacheBusterParam, opts.getCacheBuster())
-			// req.URL.RawQuery = query.Encode()
 			req.URL.RawQuery = fmt.Sprintf("%s&%s=%s", req.URL.RawQuery, DefaultCacheBusterParam, opts.getCacheBuster())
-			fmt.Println(req.URL.String())
 		}
 	}
 

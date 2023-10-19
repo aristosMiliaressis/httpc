@@ -91,9 +91,11 @@ func (c *HttpClient) HandleRequest(msg *MessageDuplex, opts ClientOptions) {
 		var body []byte
 		switch msg.Response.Header.Get("Content-Encoding") {
 		case "gzip":
-			reader, _ := gzip.NewReader(msg.Response.Body)
-			body, err = ioutil.ReadAll(reader)
+			reader, err := gzip.NewReader(msg.Response.Body)
 			defer reader.Close()
+			if err == nil {
+				body, err = ioutil.ReadAll(reader)
+			}
 		case "br":
 			reader := brotli.NewReader(msg.Response.Body)
 			body, err = ioutil.ReadAll(reader)

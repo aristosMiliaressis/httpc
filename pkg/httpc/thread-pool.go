@@ -92,8 +92,8 @@ func (c *HttpClient) HandleRequest(msg *MessageDuplex, opts ClientOptions) {
 		switch msg.Response.Header.Get("Content-Encoding") {
 		case "gzip":
 			reader, err := gzip.NewReader(msg.Response.Body)
-			defer reader.Close()
 			if err == nil {
+				defer reader.Close()
 				body, err = ioutil.ReadAll(reader)
 			}
 		case "br":
@@ -101,8 +101,8 @@ func (c *HttpClient) HandleRequest(msg *MessageDuplex, opts ClientOptions) {
 			body, err = ioutil.ReadAll(reader)
 		case "deflate":
 			reader := flate.NewReader(msg.Response.Body)
-			body, err = ioutil.ReadAll(reader)
 			defer reader.Close()
+			body, err = ioutil.ReadAll(reader)
 		default:
 			body, err = io.ReadAll(msg.Response.Body)
 		}

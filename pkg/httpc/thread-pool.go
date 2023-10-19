@@ -87,7 +87,7 @@ func (c *HttpClient) HandleRequest(msg *MessageDuplex, opts ClientOptions) {
 		msg.Response, err = c.client.Do(msg.Request)
 	}
 
-	if msg.Response != nil {
+	if msg.Response != nil && msg.Response.Body != nil {
 		var body []byte
 		switch msg.Response.Header.Get("Content-Encoding") {
 		case "gzip":

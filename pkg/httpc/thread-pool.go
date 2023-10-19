@@ -87,28 +87,30 @@ func (c *HttpClient) HandleRequest(msg *MessageDuplex, opts ClientOptions) {
 		msg.Response, err = c.client.Do(msg.Request)
 	}
 
-	var body []byte
-	switch msg.Response.Header.Get("Content-Encoding") {
-	case "gzip":
-		reader, _ := gzip.NewReader(msg.Response.Body)
-		body, err = ioutil.ReadAll(reader)
-		defer reader.Close()
-	case "br":
-		reader := brotli.NewReader(msg.Response.Body)
-		body, err = ioutil.ReadAll(reader)
-	case "deflate":
-		reader := flate.NewReader(msg.Response.Body)
-		body, err = ioutil.ReadAll(reader)
-		defer reader.Close()
-	default:
-		body, err = io.ReadAll(msg.Response.Body)
-	}
-	if err != nil {
-		gologger.Error().Msgf("Error while reading response %s", err)
-		return
-	}
+	if msg.Response != nil {
+		var body []byte
+		switch msg.Response.Header.Get("Content-Encoding") {
+		case "gzip":
+			reader, _ := gzip.NewReader(msg.Response.Body)
+			body, err = ioutil.ReadAll(reader)
+			defer reader.Close()
+		case "br":
+			reader := brotli.NewReader(msg.Response.Body)
+			body, err = ioutil.ReadAll(reader)
+		case "deflate":
+			reader := flate.NewReader(msg.Response.Body)
+			body, err = ioutil.ReadAll(reader)
+			defer reader.Close()
+		default:
+			body, err = io.ReadAll(msg.Response.Body)
+		}
+		if err != nil {
+			gologger.Error().Msgf("Error while reading response %s", err)
+			return
+		}
 
-	msg.Response.Body = io.NopCloser(bytes.NewBuffer(body))
+		msg.Response.Body = io.NopCloser(bytes.NewBuffer(body))
+	}
 
 	c.MessageLog = append(c.MessageLog, msg)
 

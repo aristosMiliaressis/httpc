@@ -133,7 +133,7 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts ClientOptions) *Mes
 
 	if opts.Connection.ForceAttemptHTTP2 {
 		msg.Request.Header.Del("Connection")
-		msg.Request.Header.Del("Upgrade")
+		//msg.Request.Header.Del("Upgrade")
 		msg.Request.Header.Del("Transfer-Encoding")
 	}
 

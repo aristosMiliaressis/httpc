@@ -55,6 +55,7 @@ func (opts CacheBustingOptions) Apply(req *http.Request) {
 			}
 			req.URL.RawQuery += fmt.Sprintf("%s=%s", opts.QueryParam, opts.getCacheBuster())
 		}
+		return
 	}
 
 	if opts.Query {
@@ -66,14 +67,12 @@ func (opts CacheBustingOptions) Apply(req *http.Request) {
 			}
 			req.URL.RawQuery += fmt.Sprintf("%s=%s", DefaultCacheBusterParam, opts.getCacheBuster())
 		}
+		return
 	}
 
-	if opts.Cookie {
-		if cookie, ok := req.Header["Cookie"]; !ok && cookie == nil {
-			req.Header.Add("Cookie", opts.getCacheBuster()+"=1")
-		} else {
-			req.Header["Cookie"][0] = req.Header["Cookie"][0] + "; " + opts.getCacheBuster() + "=1"
-		}
+	if opts.Origin {
+		req.Header.Set("Origin", req.URL.Scheme+"://"+opts.getCacheBuster()+"."+req.URL.Host)
+		return
 	}
 
 	if opts.Accept {
@@ -82,6 +81,7 @@ func (opts CacheBustingOptions) Apply(req *http.Request) {
 		} else {
 			req.Header["Accept"][0] = req.Header["Accept"][0] + ", text/" + opts.getCacheBuster()
 		}
+		return
 	}
 
 	if opts.AcceptEncoding {
@@ -90,6 +90,7 @@ func (opts CacheBustingOptions) Apply(req *http.Request) {
 		} else {
 			req.Header["Accept-Encoding"][0] = req.Header["Accept-Encoding"][0] + ", " + opts.getCacheBuster()
 		}
+		return
 	}
 
 	if opts.AcceptLanguage {
@@ -98,10 +99,16 @@ func (opts CacheBustingOptions) Apply(req *http.Request) {
 		} else {
 			req.Header["Accept-Language"][0] = req.Header["Accept-Language"][0] + ", " + opts.getCacheBuster()
 		}
+		return
 	}
 
-	if opts.Origin {
-		req.Header.Set("Origin", req.URL.Scheme+"://"+opts.getCacheBuster()+"."+req.URL.Host)
+	if opts.Cookie {
+		if cookie, ok := req.Header["Cookie"]; !ok && cookie == nil {
+			req.Header.Add("Cookie", opts.getCacheBuster()+"=1")
+		} else {
+			req.Header["Cookie"][0] = req.Header["Cookie"][0] + "; " + opts.getCacheBuster() + "=1"
+		}
+		return
 	}
 
 	if opts.Port {

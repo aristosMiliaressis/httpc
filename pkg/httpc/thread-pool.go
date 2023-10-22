@@ -76,7 +76,7 @@ func (tp *ThreadPool) Run() {
 }
 
 func (c *HttpClient) HandleRequest(msg *MessageDuplex, opts ClientOptions) {
-	defer func() { msg.Resolved <- true }()
+	defer func() { fmt.Println("BEFORE"); msg.Resolved <- true; fmt.Println("AFTER") }()
 
 	var sendErr error
 	if opts.Connection.SNI != "" {

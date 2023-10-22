@@ -18,6 +18,7 @@ import (
 	"github.com/corpix/uarand"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/rawhttp"
+	"golang.org/x/net/http2"
 )
 
 type HttpClient struct {
@@ -72,33 +73,42 @@ func createInternalHttpClient(opts ClientOptions) http.Client {
 		}
 	}
 
-	if opts.Connection.ForceAttemptHTTP1 {
-		os.Setenv("GODEBUG", "http2client=0")
-	}
-
-	return http.Client{
+	client := http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse },
 		Timeout:       time.Duration(time.Duration(opts.Performance.Timeout) * time.Second),
-		Transport: &http.Transport{
-			Proxy:             proxyURL,
-			ForceAttemptHTTP2: opts.Connection.ForceAttemptHTTP2,
-			//DisableKeepAlives:   true,
-			DisableCompression:  true,
-			MaxIdleConns:        1000,
-			MaxIdleConnsPerHost: 500,
-			MaxConnsPerHost:     500,
-			DialContext: (&net.Dialer{
-				Timeout: time.Duration(time.Duration(opts.Performance.Timeout) * time.Second),
-			}).DialContext,
-			TLSHandshakeTimeout: time.Duration(time.Duration(opts.Performance.Timeout) * time.Second),
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-				MinVersion:         tls.VersionSSL30,
-				Renegotiation:      tls.RenegotiateOnceAsClient,
-				ServerName:         opts.Connection.SNI,
-			},
+	}
+
+	transport := &http.Transport{
+		Proxy:             proxyURL,
+		ForceAttemptHTTP2: opts.Connection.ForceAttemptHTTP2,
+		//DisableKeepAlives:   true,
+		DisableCompression:  true,
+		MaxIdleConns:        1000,
+		MaxIdleConnsPerHost: 500,
+		MaxConnsPerHost:     500,
+		DialContext: (&net.Dialer{
+			Timeout: time.Duration(time.Duration(opts.Performance.Timeout) * time.Second),
+		}).DialContext,
+		TLSHandshakeTimeout: time.Duration(time.Duration(opts.Performance.Timeout) * time.Second),
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+			MinVersion:         tls.VersionSSL30,
+			Renegotiation:      tls.RenegotiateOnceAsClient,
+			ServerName:         opts.Connection.SNI,
 		},
 	}
+
+	h2, _ := http2.ConfigureTransports(transport)
+	h2.AllowHTTP = true
+	h2.WriteByteTimeout = time.Duration(time.Duration(opts.Performance.Timeout) * time.Second)
+	h2.PingTimeout = time.Duration(time.Duration(opts.Performance.Timeout) * time.Second)
+	client.Transport = h2
+	if opts.Connection.ForceAttemptHTTP1 {
+		os.Setenv("GODEBUG", "http2client=0")
+		client.Transport = transport
+	}
+
+	return client
 }
 
 func (c *HttpClient) Send(req *http.Request) *MessageDuplex {

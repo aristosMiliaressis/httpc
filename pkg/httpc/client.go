@@ -178,6 +178,7 @@ func (c *HttpClient) SendRaw(rawreq string, baseUrl string) *MessageDuplex {
 	var err error
 	msg := MessageDuplex{}
 	msg.Response, err = httpclient.DoRaw("GET", baseUrl, "", nil, nil)
+	c.ThreadPool.Rate.Tick(time.Now())
 	if err != nil {
 		gologger.Warning().Msgf("Encountered error while sending raw request: %s", err)
 	}
@@ -201,6 +202,7 @@ func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts Clie
 	var err error
 	msg := MessageDuplex{}
 	msg.Response, err = httpclient.DoRaw("GET", baseUrl, "", nil, nil)
+	c.ThreadPool.Rate.Tick(time.Now())
 	if err != nil {
 		gologger.Warning().Msgf("Encountered error while sending raw request: %s", err)
 	}

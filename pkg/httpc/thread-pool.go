@@ -51,6 +51,9 @@ func (tp *ThreadPool) Run() {
 
 	for i := 1; true; i++ {
 
+		gologger.Debug().Msgf("threads: %d, desiredRate: %d ctrrentRate: %d\n",
+			int(tp.threadCount.Load()), tp.Rate.rate, tp.Rate.CurrentRate())
+
 		if tp.Rate.CurrentRate() < int64(tp.Rate.rate) && int(tp.threadCount.Load()) < maxThreads {
 
 			tp.threadCount.Add(1)

@@ -5,7 +5,6 @@ import (
 	"compress/flate"
 	"compress/gzip"
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -76,7 +75,7 @@ func (tp *ThreadPool) Run() {
 }
 
 func (c *HttpClient) HandleRequest(msg *MessageDuplex, opts ClientOptions) {
-	defer func() { fmt.Println("BEFORE"); msg.Resolved <- true; fmt.Println("AFTER") }()
+	defer func() { msg.Resolved <- true }()
 
 	var sendErr error
 	if opts.Connection.SNI != "" {
@@ -184,9 +183,7 @@ func (c *HttpClient) HandleRequest(msg *MessageDuplex, opts ClientOptions) {
 
 		newMsg := c.SendWithOptions(redirectedReq, opts)
 		newMsg.AddRedirect(msg)
-		fmt.Println("WAITING")
 		<-newMsg.Resolved
-		fmt.Println("DONE")
 
 		c.MessageLog = append(c.MessageLog, newMsg)
 

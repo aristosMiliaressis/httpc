@@ -1,7 +1,6 @@
 package httpc
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 )
@@ -58,8 +57,6 @@ func (e *MessageDuplex) AddRedirect(prev *MessageDuplex) {
 	current := e
 
 	for {
-		fmt.Println("LOOPING")
-
 		if current.Prev == nil {
 			current.Prev = prev
 			break

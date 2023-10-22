@@ -13,6 +13,7 @@ import (
 
 	"github.com/andybalholm/brotli"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/rawhttp"
 )
 
 type ThreadPool struct {
@@ -21,10 +22,11 @@ type ThreadPool struct {
 	context     context.Context
 
 	queuedRequestC chan struct {
+		raw  string
 		req  *MessageDuplex
 		opts ClientOptions
 	}
-	sendRequestCallback func(*MessageDuplex, ClientOptions)
+	sendRequestCallback func(string, *MessageDuplex, ClientOptions)
 }
 
 func (c *HttpClient) NewThreadPool() *ThreadPool {
@@ -33,6 +35,7 @@ func (c *HttpClient) NewThreadPool() *ThreadPool {
 		sendRequestCallback: c.HandleRequest,
 		Rate:                newRateThrottle(c.Options.Performance.RequestsPerSecond),
 		queuedRequestC: make(chan struct {
+			raw  string
 			req  *MessageDuplex
 			opts ClientOptions
 		}),
@@ -62,7 +65,7 @@ func (tp *ThreadPool) Run() {
 				for uow := range tp.queuedRequestC {
 
 					<-tp.Rate.RateLimiter.C
-					tp.sendRequestCallback(uow.req, uow.opts)
+					tp.sendRequestCallback(uow.raw, uow.req, uow.opts)
 					tp.Rate.Tick(time.Now())
 
 					if tp.Rate.CurrentRate() > int64(tp.Rate.rate) && int(tp.threadCount.Load()) > 1 {
@@ -77,16 +80,39 @@ func (tp *ThreadPool) Run() {
 	}
 }
 
-func (c *HttpClient) HandleRequest(msg *MessageDuplex, opts ClientOptions) {
+func (c *HttpClient) HandleRequest(raw string, msg *MessageDuplex, opts ClientOptions) {
 	defer func() { msg.Resolved <- true }()
 
 	var sendErr error
-	if opts.Connection.SNI != "" {
-		sniClient := createInternalHttpClient(opts)
+	if raw == "" {
+		if opts.Connection.SNI != "" {
+			sniClient := createInternalHttpClient(opts)
 
-		msg.Response, sendErr = sniClient.Do(msg.Request)
+			msg.Response, sendErr = sniClient.Do(msg.Request)
+		} else {
+			msg.Response, sendErr = c.client.Do(msg.Request)
+		}
 	} else {
-		msg.Response, sendErr = c.client.Do(msg.Request)
+		rawhttpOptions := rawhttp.DefaultOptions
+		//rawhttpOptions.Timeout = time.Duration(opts.Performance.Timeout * int(time.Second))
+		// rawhttpOptions.FollowRedirects = opts.Redirection.FollowRedirects
+		// rawhttpOptions.MaxRedirects = opts.Redirection.MaxRedirects
+		// rawhttpOptions.SNI = opts.Connection.SNI
+		rawhttpOptions.AutomaticHostHeader = false
+		rawhttpOptions.CustomRawBytes = []byte(raw)
+		httpclient := rawhttp.NewClient(rawhttpOptions)
+		defer httpclient.Close()
+
+		var err error
+		msg.Response, err = httpclient.DoRaw("GET", msg.Request.URL.String(), "", nil, nil)
+		if err != nil {
+			gologger.Warning().Msgf("Encountered error while sending raw request: %s", err)
+		}
+	}
+
+	c.MessageLog = append(c.MessageLog, msg)
+	if raw != "" {
+		return
 	}
 
 	if msg.Response == nil && opts.ErrorHandling.RetryTransportFailures {
@@ -119,7 +145,6 @@ func (c *HttpClient) HandleRequest(msg *MessageDuplex, opts ClientOptions) {
 		msg.Response.Body = io.NopCloser(bytes.NewBuffer(body))
 	}
 
-	c.MessageLog = append(c.MessageLog, msg)
 	if dcprsErr != nil {
 		gologger.Error().Msgf("Error while reading response %s", dcprsErr)
 		return

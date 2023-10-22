@@ -17,7 +17,6 @@ import (
 	"github.com/aristosMiliaressis/go-ip-rotate/pkg/iprotate"
 	"github.com/corpix/uarand"
 	"github.com/projectdiscovery/gologger"
-	"github.com/projectdiscovery/rawhttp"
 )
 
 type HttpClient struct {
@@ -161,53 +160,30 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts ClientOptions) *Mes
 	msg.Request = msg.Request.WithContext(httptrace.WithClientTrace(c.context, trace))
 
 	c.ThreadPool.queuedRequestC <- struct {
+		raw  string
 		req  *MessageDuplex
 		opts ClientOptions
-	}{msg, opts}
+	}{"", msg, opts}
 
 	return msg
 }
 
 func (c *HttpClient) SendRaw(rawreq string, baseUrl string) *MessageDuplex {
-	rawhttpOptions := rawhttp.DefaultOptions
-	rawhttpOptions.AutomaticHostHeader = false
-	rawhttpOptions.CustomRawBytes = []byte(rawreq)
-	httpclient := rawhttp.NewClient(rawhttpOptions)
-	defer httpclient.Close()
-
-	var err error
-	msg := MessageDuplex{}
-	msg.Response, err = httpclient.DoRaw("GET", baseUrl, "", nil, nil)
-	c.ThreadPool.Rate.Tick(time.Now())
-	if err != nil {
-		gologger.Warning().Msgf("Encountered error while sending raw request: %s", err)
-	}
-
-	c.MessageLog = append(c.MessageLog, &msg)
-
-	return &msg
+	return c.SendRawWithOptions(rawreq, baseUrl, c.Options)
 }
 
 func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts ClientOptions) *MessageDuplex {
-	rawhttpOptions := rawhttp.DefaultOptions
-	rawhttpOptions.Timeout = time.Duration(opts.Performance.Timeout * int(time.Second))
-	rawhttpOptions.FollowRedirects = opts.Redirection.FollowRedirects
-	rawhttpOptions.MaxRedirects = opts.Redirection.MaxRedirects
-	rawhttpOptions.SNI = opts.Connection.SNI
-	rawhttpOptions.AutomaticHostHeader = false
-	rawhttpOptions.CustomRawBytes = []byte(rawreq)
-	httpclient := rawhttp.NewClient(rawhttpOptions)
-	defer httpclient.Close()
 
-	var err error
+	c.sleepIfNeeded(opts.Performance.Delay)
+
 	msg := MessageDuplex{}
-	msg.Response, err = httpclient.DoRaw("GET", baseUrl, "", nil, nil)
-	c.ThreadPool.Rate.Tick(time.Now())
-	if err != nil {
-		gologger.Warning().Msgf("Encountered error while sending raw request: %s", err)
-	}
+	msg.Request, _ = http.NewRequest("GET", baseUrl, nil)
 
-	c.MessageLog = append(c.MessageLog, &msg)
+	c.ThreadPool.queuedRequestC <- struct {
+		raw  string
+		req  *MessageDuplex
+		opts ClientOptions
+	}{rawreq, &msg, opts}
 
 	return &msg
 }

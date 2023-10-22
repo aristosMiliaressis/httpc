@@ -13,18 +13,19 @@ type ClientOptions struct {
 	ErrorHandling ErrorHandlingOptions
 }
 
+type ConnectionOptions struct {
+	ProxyUrl          string
+	ForceAttemptHTTP1 bool
+	ForceAttemptHTTP2 bool
+	SNI               string
+}
+
 type RedirectionOptions struct {
 	FollowRedirects             bool
 	MaxRedirects                int
 	PreventCrossSiteRedirects   bool
 	PreventCrossOriginRedirects bool
 	currentDepth                int
-}
-
-type ErrorHandlingOptions struct {
-	ErrorPercentageThreshold  int
-	ConsecutiveErrorThreshold int
-	IpRotateOnIpBan           bool
 }
 
 type PerformanceOptions struct {
@@ -35,11 +36,11 @@ type PerformanceOptions struct {
 	ReplayRateLimitted bool
 }
 
-type ConnectionOptions struct {
-	ProxyUrl          string
-	ForceAttemptHTTP1 bool
-	ForceAttemptHTTP2 bool
-	SNI               string
+type ErrorHandlingOptions struct {
+	ErrorPercentageThreshold    int
+	ConsecutiveErrorThreshold   int
+	IpRotateIfThresholdExheeded bool
+	RetryTransportFailures      bool
 }
 
 type Range struct {

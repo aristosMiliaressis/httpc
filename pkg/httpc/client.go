@@ -35,8 +35,9 @@ type HttpClient struct {
 	errorLog   map[string]int
 	errorMutex sync.Mutex
 
-	totalErrors     int
-	totalSuccessful int
+	totalErrors       int
+	totalSuccessful   int
+	consecutiveErrors int
 
 	apiGateways map[string]*iprotate.ApiEndpoint // make concurrent
 }

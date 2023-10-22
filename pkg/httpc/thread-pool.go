@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/url"
-	"os"
 	"sync/atomic"
 	"time"
 
@@ -78,57 +77,78 @@ func (tp *ThreadPool) Run() {
 func (c *HttpClient) HandleRequest(msg *MessageDuplex, opts ClientOptions) {
 	defer func() { msg.Resolved <- true }()
 
-	var err error
+	var sendErr error
 	if opts.Connection.SNI != "" {
 		sniClient := createInternalHttpClient(opts)
 
-		msg.Response, err = sniClient.Do(msg.Request)
+		msg.Response, sendErr = sniClient.Do(msg.Request)
 	} else {
-		msg.Response, err = c.client.Do(msg.Request)
+		msg.Response, sendErr = c.client.Do(msg.Request)
 	}
 
+	if msg.Response == nil && opts.ErrorHandling.RetryTransportFailures {
+		retriedMsg := c.SendWithOptions(msg.Request, opts)
+		*msg = *retriedMsg
+		return
+	}
+
+	var dcprsErr error
 	if msg.Response != nil && msg.Response.Body != nil {
 		var body []byte
 		switch msg.Response.Header.Get("Content-Encoding") {
 		case "gzip":
-			reader, err := gzip.NewReader(msg.Response.Body)
-			if err == nil {
+			reader, readErr := gzip.NewReader(msg.Response.Body)
+			if readErr == nil {
 				defer reader.Close()
-				body, err = ioutil.ReadAll(reader)
+				body, dcprsErr = ioutil.ReadAll(reader)
 			}
 		case "br":
 			reader := brotli.NewReader(msg.Response.Body)
-			body, err = ioutil.ReadAll(reader)
+			body, dcprsErr = ioutil.ReadAll(reader)
 		case "deflate":
 			reader := flate.NewReader(msg.Response.Body)
 			defer reader.Close()
-			body, err = ioutil.ReadAll(reader)
+			body, dcprsErr = ioutil.ReadAll(reader)
 		default:
-			body, err = io.ReadAll(msg.Response.Body)
-		}
-		if err != nil {
-			gologger.Error().Msgf("Error while reading response %s", err)
-			return
+			body, dcprsErr = io.ReadAll(msg.Response.Body)
 		}
 
 		msg.Response.Body = io.NopCloser(bytes.NewBuffer(body))
 	}
 
 	c.MessageLog = append(c.MessageLog, msg)
+	if dcprsErr != nil {
+		gologger.Error().Msgf("Error while reading response %s", dcprsErr)
+		return
+	}
 
-	if err != nil {
-		c.handleError(msg, err)
+	// handle transport errors
+	if sendErr != nil {
+		c.handleTransportError(msg, sendErr)
 		return
 	}
 
 	gologger.Debug().Msgf("%s %s %d\n", msg.Request.URL.String(), msg.Response.Status, msg.Response.ContentLength)
 
+	// Update cookie jar
 	if c.Options.MaintainCookieJar && msg.Response.Cookies() != nil {
 		for _, cookie := range msg.Response.Cookies() {
 			c.AddCookie(cookie.Name, cookie.Value)
 		}
 	}
 
+	// handle http errors
+	if msg.TransportError != NoError || (msg.Response.StatusCode >= 400 && !Contains(safeErrorsList, msg.Response.StatusCode)) {
+		c.totalErrors += 1
+		c.consecutiveErrors += 1
+		c.handleHttpError(msg)
+		return
+	} else {
+		c.totalSuccessful += 1
+		c.consecutiveErrors = 0
+	}
+
+	// handle redirects
 	if msg.Response.StatusCode >= 300 && msg.Response.StatusCode <= 399 {
 		absRedirect := GetRedirectLocation(msg.Response)
 
@@ -170,29 +190,7 @@ func (c *HttpClient) HandleRequest(msg *MessageDuplex, opts ClientOptions) {
 		return
 	}
 
-	c.errorMutex.Lock()
-	if msg.TransportError != NoError || (msg.Response.StatusCode >= 400 && !Contains(safeErrorsList, msg.Response.StatusCode)) {
-		c.totalErrors += 1
-		c.errorLog["GENERAL"] += 1
-	} else {
-		c.totalSuccessful += 1
-		c.errorLog["GENERAL"] = 0
-	}
-
-	if c.Options.ErrorHandling.ConsecutiveErrorThreshold != 0 &&
-		c.errorLog["GENERAL"] > c.Options.ErrorHandling.ConsecutiveErrorThreshold {
-		gologger.Fatal().Msgf("Exceeded %d consecutive errors threshold, exiting.", c.Options.ErrorHandling.ConsecutiveErrorThreshold)
-		os.Exit(1)
-	}
-	c.errorMutex.Unlock()
-
-	if c.Options.ErrorHandling.ErrorPercentageThreshold != 0 &&
-		c.totalSuccessful+c.totalErrors > 40 &&
-		(c.totalSuccessful == 0 || int(100.0/(float64((c.totalSuccessful+c.totalErrors))/float64(c.totalErrors))) > c.Options.ErrorHandling.ErrorPercentageThreshold) {
-		gologger.Fatal().Msgf("%d errors out of %d requests exceeded %d%% error threshold, exiting.", c.totalErrors, c.totalSuccessful+c.totalErrors, c.Options.ErrorHandling.ErrorPercentageThreshold)
-		os.Exit(1)
-	}
-
+	// handle rate-limitting
 	if msg.Response.StatusCode == 429 || msg.Response.StatusCode == 529 {
 		if opts.Performance.AutoRateThrottle {
 			c.ThreadPool.Rate.ChangeRate(c.ThreadPool.Rate.rate - 1)
@@ -205,6 +203,4 @@ func (c *HttpClient) HandleRequest(msg *MessageDuplex, opts ClientOptions) {
 
 		msg.RateLimited = true
 	}
-
-	c.MessageLog = append(c.MessageLog, msg)
 }

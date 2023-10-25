@@ -5,6 +5,7 @@ type ClientOptions struct {
 	RandomizeUserAgent      bool
 	MaintainCookieJar       bool
 	DefaultHeaders          map[string]string
+	RequestPriority         Priority
 
 	Connection    ConnectionOptions
 	CacheBusting  CacheBustingOptions
@@ -51,6 +52,7 @@ type Range struct {
 var DefaultOptions = ClientOptions{
 	SimulateBrowserRequests: true,
 	MaintainCookieJar:       true,
+	RequestPriority:         1,
 	DefaultHeaders:          map[string]string{},
 	Redirection: RedirectionOptions{
 		FollowRedirects:           true,

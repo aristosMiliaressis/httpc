@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/url"
+	"sort"
 	"sync/atomic"
 	"time"
 
@@ -16,34 +17,30 @@ import (
 	"github.com/projectdiscovery/rawhttp"
 )
 
+type PendingRequest struct {
+	RawRequest string
+	Request    *MessageDuplex
+	Options    ClientOptions
+}
+type RequestQueue chan PendingRequest
+type Priority int
+
 type ThreadPool struct {
 	threadCount atomic.Int64
 	Rate        *RateThrottle
 	context     context.Context
 
-	queuedRequestC chan struct {
-		raw  string
-		req  *MessageDuplex
-		opts ClientOptions
-	}
-	sendRequestCallback func(string, *MessageDuplex, ClientOptions)
+	requestPriorityQueues map[Priority]RequestQueue
+	sendRequestCallback   func(uow PendingRequest)
 }
 
 func (c *HttpClient) NewThreadPool() *ThreadPool {
 	return &ThreadPool{
-		context:             c.context,
-		sendRequestCallback: c.HandleRequest,
-		Rate:                newRateThrottle(c.Options.Performance.RequestsPerSecond),
-		queuedRequestC: make(chan struct {
-			raw  string
-			req  *MessageDuplex
-			opts ClientOptions
-		}),
+		context:               c.context,
+		sendRequestCallback:   c.HandleRequest,
+		Rate:                  newRateThrottle(c.Options.Performance.RequestsPerSecond),
+		requestPriorityQueues: make(map[Priority]RequestQueue),
 	}
-}
-
-type RequestQueue struct {
-	Requests []MessageDuplex
 }
 
 // TODO: look into https://www.openmymind.net/Leaking-Goroutines/
@@ -62,10 +59,11 @@ func (tp *ThreadPool) Run() {
 			tp.threadCount.Add(1)
 
 			go func(workerID int) {
-				for uow := range tp.queuedRequestC {
+				for {
+					uow := tp.GetNextPrioritizedRequest()
 
 					<-tp.Rate.RateLimiter.C
-					tp.sendRequestCallback(uow.raw, uow.req, uow.opts)
+					tp.sendRequestCallback(uow)
 					tp.Rate.Tick(time.Now())
 
 					if tp.Rate.CurrentRate() > int64(tp.Rate.rate) && int(tp.threadCount.Load()) > 1 {
@@ -80,69 +78,81 @@ func (tp *ThreadPool) Run() {
 	}
 }
 
-func (c *HttpClient) HandleRequest(raw string, msg *MessageDuplex, opts ClientOptions) {
-	defer func() { msg.Resolved <- true }()
+func (tp *ThreadPool) GetNextPrioritizedRequest() PendingRequest {
+	priorities := make([]int, 0, len(tp.requestPriorityQueues))
+	for p := range tp.requestPriorityQueues {
+		priorities = append(priorities, int(p))
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(priorities)))
+
+	for {
+		for _, p := range priorities {
+			if len(tp.requestPriorityQueues[Priority(p)]) > 0 {
+				return <-tp.requestPriorityQueues[Priority(p)]
+			}
+		}
+	}
+}
+
+func (c *HttpClient) HandleRequest(uow PendingRequest) {
+	defer func() { uow.Request.Resolved <- true }()
 
 	var sendErr error
-	if raw == "" {
-		if opts.Connection.SNI != "" {
-			sniClient := createInternalHttpClient(opts)
+	if uow.RawRequest == "" {
+		if uow.Options.Connection.SNI != "" {
+			sniClient := createInternalHttpClient(uow.Options)
 
-			msg.Response, sendErr = sniClient.Do(msg.Request)
+			uow.Request.Response, sendErr = sniClient.Do(uow.Request.Request)
 		} else {
-			msg.Response, sendErr = c.client.Do(msg.Request)
+			uow.Request.Response, sendErr = c.client.Do(uow.Request.Request)
 		}
 	} else {
 		rawhttpOptions := rawhttp.DefaultOptions
-		//rawhttpOptions.Timeout = time.Duration(opts.Performance.Timeout * int(time.Second))
-		// rawhttpOptions.FollowRedirects = opts.Redirection.FollowRedirects
-		// rawhttpOptions.MaxRedirects = opts.Redirection.MaxRedirects
-		// rawhttpOptions.SNI = opts.Connection.SNI
 		rawhttpOptions.AutomaticHostHeader = false
-		rawhttpOptions.CustomRawBytes = []byte(raw)
+		rawhttpOptions.CustomRawBytes = []byte(uow.RawRequest)
 		httpclient := rawhttp.NewClient(rawhttpOptions)
 		defer httpclient.Close()
 
 		var err error
-		msg.Response, err = httpclient.DoRaw("GET", msg.Request.URL.String(), "", nil, nil)
+		uow.Request.Response, err = httpclient.DoRaw("GET", uow.Request.Request.URL.String(), "", nil, nil)
 		if err != nil {
-			gologger.Warning().Msgf("Encountered error while sending raw request: %s", err)
+			gologger.Warning().Msgf("Encountered error while sending uow.RawRequest request: %s", err)
 		}
 	}
 
-	c.MessageLog = append(c.MessageLog, msg)
-	if raw != "" {
+	c.MessageLog = append(c.MessageLog, uow.Request)
+	if uow.RawRequest != "" {
 		return
 	}
 
-	if msg.Response == nil && opts.ErrorHandling.RetryTransportFailures {
-		retriedMsg := c.SendWithOptions(msg.Request, opts)
-		*msg = *retriedMsg
+	if uow.Request.Response == nil && uow.Options.ErrorHandling.RetryTransportFailures {
+		retriedMsg := c.SendWithOptions(uow.Request.Request, uow.Options)
+		*uow.Request = *retriedMsg
 		return
 	}
 
 	var dcprsErr error
-	if msg.Response != nil && msg.Response.Body != nil {
+	if uow.Request.Response != nil && uow.Request.Response.Body != nil {
 		var body []byte
-		switch msg.Response.Header.Get("Content-Encoding") {
+		switch uow.Request.Response.Header.Get("Content-Encoding") {
 		case "gzip":
-			reader, readErr := gzip.NewReader(msg.Response.Body)
+			reader, readErr := gzip.NewReader(uow.Request.Response.Body)
 			if readErr == nil {
 				defer reader.Close()
 				body, dcprsErr = ioutil.ReadAll(reader)
 			}
 		case "br":
-			reader := brotli.NewReader(msg.Response.Body)
+			reader := brotli.NewReader(uow.Request.Response.Body)
 			body, dcprsErr = ioutil.ReadAll(reader)
 		case "deflate":
-			reader := flate.NewReader(msg.Response.Body)
+			reader := flate.NewReader(uow.Request.Response.Body)
 			defer reader.Close()
 			body, dcprsErr = ioutil.ReadAll(reader)
 		default:
-			body, dcprsErr = io.ReadAll(msg.Response.Body)
+			body, dcprsErr = io.ReadAll(uow.Request.Response.Body)
 		}
 
-		msg.Response.Body = io.NopCloser(bytes.NewBuffer(body))
+		uow.Request.Response.Body = io.NopCloser(bytes.NewBuffer(body))
 	}
 
 	if dcprsErr != nil {
@@ -152,24 +162,24 @@ func (c *HttpClient) HandleRequest(raw string, msg *MessageDuplex, opts ClientOp
 
 	// handle transport errors
 	if sendErr != nil {
-		c.handleTransportError(msg, sendErr)
+		c.handleTransportError(uow.Request, sendErr)
 		return
 	}
 
-	gologger.Debug().Msgf("%s %s %d\n", msg.Request.URL.String(), msg.Response.Status, msg.Response.ContentLength)
+	gologger.Debug().Msgf("%s %s %d\n", uow.Request.Request.URL.String(), uow.Request.Response.Status, uow.Request.Response.ContentLength)
 
 	// Update cookie jar
-	if c.Options.MaintainCookieJar && msg.Response.Cookies() != nil {
-		for _, cookie := range msg.Response.Cookies() {
+	if c.Options.MaintainCookieJar && uow.Request.Response.Cookies() != nil {
+		for _, cookie := range uow.Request.Response.Cookies() {
 			c.AddCookie(cookie.Name, cookie.Value)
 		}
 	}
 
 	// handle http errors
-	if msg.TransportError != NoError || (msg.Response.StatusCode >= 400 && !Contains(safeErrorsList, msg.Response.StatusCode)) {
+	if uow.Request.TransportError != NoError || (uow.Request.Response.StatusCode >= 400 && !Contains(safeErrorsList, uow.Request.Response.StatusCode)) {
 		c.totalErrors += 1
 		c.consecutiveErrors += 1
-		c.handleHttpError(msg)
+		c.handleHttpError(uow.Request)
 		return
 	} else {
 		c.totalSuccessful += 1
@@ -177,40 +187,40 @@ func (c *HttpClient) HandleRequest(raw string, msg *MessageDuplex, opts ClientOp
 	}
 
 	// handle redirects
-	if msg.Response.StatusCode >= 300 && msg.Response.StatusCode <= 399 {
-		absRedirect := GetRedirectLocation(msg.Response)
+	if uow.Request.Response.StatusCode >= 300 && uow.Request.Response.StatusCode <= 399 {
+		absRedirect := GetRedirectLocation(uow.Request.Response)
 
-		msg.CrossOriginRedirect = IsCrossOrigin(msg.Request.URL.String(), absRedirect)
-		msg.CrossSiteRedirect = IsCrossSite(msg.Request.URL.String(), absRedirect)
+		uow.Request.CrossOriginRedirect = IsCrossOrigin(uow.Request.Request.URL.String(), absRedirect)
+		uow.Request.CrossSiteRedirect = IsCrossSite(uow.Request.Request.URL.String(), absRedirect)
 
-		if opts.Redirection.PreventCrossOriginRedirects && msg.CrossOriginRedirect {
+		if uow.Options.Redirection.PreventCrossOriginRedirects && uow.Request.CrossOriginRedirect {
 			return
 		}
 
-		if opts.Redirection.PreventCrossSiteRedirects && msg.CrossSiteRedirect {
+		if uow.Options.Redirection.PreventCrossSiteRedirects && uow.Request.CrossSiteRedirect {
 			return
 		}
 
-		opts.Redirection.currentDepth++
-		if opts.Redirection.currentDepth > opts.Redirection.MaxRedirects {
-			msg.MaxRedirectsExheeded = true
+		uow.Options.Redirection.currentDepth++
+		if uow.Options.Redirection.currentDepth > uow.Options.Redirection.MaxRedirects {
+			uow.Request.MaxRedirectsExheeded = true
 			return
 		}
 
-		if !opts.Redirection.FollowRedirects {
+		if !uow.Options.Redirection.FollowRedirects {
 			return
 		}
 
-		redirectedReq := msg.Request.Clone(c.context)
-		redirectedReq.Header.Del("Cookie") // TODO: test this <-----
-		opts.CacheBusting.Clear(redirectedReq)
+		redirectedReq := uow.Request.Request.Clone(c.context)
+		redirectedReq.Header.Del("Cookie") // TODO: figure out why did i do this??
+		uow.Options.CacheBusting.Clear(redirectedReq)
 
 		absRedirectUrl, _ := url.Parse(absRedirect)
 		redirectedReq.Host = absRedirectUrl.Host
 		redirectedReq.URL, _ = url.Parse(absRedirect)
 
-		newMsg := c.SendWithOptions(redirectedReq, opts)
-		newMsg.AddRedirect(msg)
+		newMsg := c.SendWithOptions(redirectedReq, uow.Options)
+		newMsg.AddRedirect(uow.Request)
 		<-newMsg.Resolved
 
 		c.MessageLog = append(c.MessageLog, newMsg)
@@ -219,16 +229,16 @@ func (c *HttpClient) HandleRequest(raw string, msg *MessageDuplex, opts ClientOp
 	}
 
 	// handle rate-limitting
-	if msg.Response.StatusCode == 429 || msg.Response.StatusCode == 529 {
-		if opts.Performance.AutoRateThrottle {
+	if uow.Request.Response.StatusCode == 429 || uow.Request.Response.StatusCode == 529 {
+		if uow.Options.Performance.AutoRateThrottle {
 			c.ThreadPool.Rate.ChangeRate(c.ThreadPool.Rate.rate - 1)
 		}
 
-		if opts.Performance.ReplayRateLimitted {
-			replayReq := msg.Request.Clone(c.context)
-			msg = c.SendWithOptions(replayReq, opts)
+		if uow.Options.Performance.ReplayRateLimitted {
+			replayReq := uow.Request.Request.Clone(c.context)
+			uow.Request = c.SendWithOptions(replayReq, uow.Options)
 		}
 
-		msg.RateLimited = true
+		uow.Request.RateLimited = true
 	}
 }

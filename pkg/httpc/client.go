@@ -60,7 +60,9 @@ func NewHttpClient(opts ClientOptions, ctx context.Context) *HttpClient {
 }
 
 func (c *HttpClient) Close() {
-	close(c.ThreadPool.queuedRequestC)
+	for k := range c.ThreadPool.requestPriorityQueues {
+		close(c.ThreadPool.requestPriorityQueues[k])
+	}
 }
 
 func createInternalHttpClient(opts ClientOptions) http.Client {
@@ -159,11 +161,7 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts ClientOptions) *Mes
 
 	msg.Request = msg.Request.WithContext(httptrace.WithClientTrace(c.context, trace))
 
-	c.ThreadPool.queuedRequestC <- struct {
-		raw  string
-		req  *MessageDuplex
-		opts ClientOptions
-	}{"", msg, opts}
+	c.ThreadPool.requestPriorityQueues[opts.RequestPriority] <- PendingRequest{"", msg, opts}
 
 	return msg
 }
@@ -179,11 +177,7 @@ func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts Clie
 	msg := MessageDuplex{}
 	msg.Request, _ = http.NewRequest("GET", baseUrl, nil)
 
-	c.ThreadPool.queuedRequestC <- struct {
-		raw  string
-		req  *MessageDuplex
-		opts ClientOptions
-	}{rawreq, &msg, opts}
+	c.ThreadPool.requestPriorityQueues[opts.RequestPriority] <- PendingRequest{rawreq, &msg, opts}
 
 	return &msg
 }

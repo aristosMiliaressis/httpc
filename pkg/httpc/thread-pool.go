@@ -81,11 +81,15 @@ func (tp *ThreadPool) Run() {
 
 func (tp *ThreadPool) GetNextPrioritizedRequest() PendingRequest {
 	for {
+		fmt.Println("GetNextPrioritizedRequest")
+
 		priorities := make([]int, 0, len(tp.requestPriorityQueues))
 		for p := range tp.requestPriorityQueues {
 			priorities = append(priorities, int(p))
 		}
+		fmt.Printf("GetNextPrioritizedRequest %d\n", len(priorities))
 		sort.Sort(sort.Reverse(sort.IntSlice(priorities)))
+		fmt.Printf("GetNextPrioritizedRequest %d\n", len(priorities))
 
 		for _, p := range priorities {
 			fmt.Printf("priority: %d\n", p)

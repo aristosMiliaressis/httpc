@@ -161,7 +161,9 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts ClientOptions) *Mes
 
 	msg.Request = msg.Request.WithContext(httptrace.WithClientTrace(c.context, trace))
 
+	fmt.Println("sending")
 	c.ThreadPool.requestPriorityQueues[opts.RequestPriority] <- PendingRequest{"", msg, opts}
+	fmt.Println("sent")
 
 	return msg
 }

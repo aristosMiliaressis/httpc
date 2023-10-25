@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"sort"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -31,7 +32,9 @@ type ThreadPool struct {
 	context     context.Context
 
 	requestPriorityQueues map[Priority]RequestQueue
-	sendRequestCallback   func(uow PendingRequest)
+	requestQueueMutex     sync.RWMutex
+
+	sendRequestCallback func(uow PendingRequest)
 }
 
 func (c *HttpClient) NewThreadPool() *ThreadPool {
@@ -79,6 +82,9 @@ func (tp *ThreadPool) Run() {
 }
 
 func (tp *ThreadPool) GetNextPrioritizedRequest() PendingRequest {
+	tp.requestQueueMutex.RLock()
+	defer tp.requestQueueMutex.RUnlock()
+
 	for {
 		priorities := make([]int, 0, len(tp.requestPriorityQueues))
 		for p := range tp.requestPriorityQueues {

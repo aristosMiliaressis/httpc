@@ -161,6 +161,7 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts ClientOptions) *Mes
 
 	msg.Request = msg.Request.WithContext(httptrace.WithClientTrace(c.context, trace))
 
+	c.ThreadPool.requestQueueMutex.Lock()
 	queue, ok := c.ThreadPool.requestPriorityQueues[opts.RequestPriority]
 	if !ok {
 		queue = make(RequestQueue, 1000)
@@ -168,6 +169,7 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts ClientOptions) *Mes
 	}
 
 	queue <- PendingRequest{"", msg, opts}
+	c.ThreadPool.requestQueueMutex.Unlock()
 
 	return msg
 }
@@ -183,6 +185,7 @@ func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts Clie
 	msg := MessageDuplex{}
 	msg.Request, _ = http.NewRequest("GET", baseUrl, nil)
 
+	c.ThreadPool.requestQueueMutex.Lock()
 	queue, ok := c.ThreadPool.requestPriorityQueues[opts.RequestPriority]
 	if !ok {
 		queue = make(RequestQueue, 1000)
@@ -190,6 +193,7 @@ func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts Clie
 	}
 
 	queue <- PendingRequest{rawreq, &msg, opts}
+	c.ThreadPool.requestQueueMutex.Unlock()
 
 	return &msg
 }

@@ -93,10 +93,6 @@ func (tp *ThreadPool) GetNextPrioritizedRequest() PendingRequest {
 
 			return <-tp.requestPriorityQueues[Priority(p)]
 		}
-
-		if len(priorities) > 0 {
-			return <-tp.requestPriorityQueues[Priority(priorities[0])]
-		}
 	}
 }
 

@@ -164,7 +164,7 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts ClientOptions) *Mes
 	fmt.Printf("Sending %d\n", opts.RequestPriority)
 	queue, ok := c.ThreadPool.requestPriorityQueues[opts.RequestPriority]
 	if !ok {
-		queue = make(RequestQueue)
+		queue = make(RequestQueue, 1000)
 		c.ThreadPool.requestPriorityQueues[opts.RequestPriority] = queue
 	}
 
@@ -187,7 +187,7 @@ func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts Clie
 
 	queue, ok := c.ThreadPool.requestPriorityQueues[opts.RequestPriority]
 	if !ok {
-		queue = make(RequestQueue)
+		queue = make(RequestQueue, 1000)
 		c.ThreadPool.requestPriorityQueues[opts.RequestPriority] = queue
 	}
 

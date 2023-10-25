@@ -90,10 +90,10 @@ func (tp *ThreadPool) GetNextPrioritizedRequest() PendingRequest {
 		for _, p := range priorities {
 			//fmt.Printf("priority %d\n", p)
 
-			if len(tp.requestPriorityQueues[Priority(p)]) > 0 {
-				fmt.Printf("not empty %d\n", p)
-				return <-tp.requestPriorityQueues[Priority(p)]
-			}
+			//if len(tp.requestPriorityQueues[Priority(p)]) > 0 {
+			fmt.Printf("not empty %d\n", p)
+			return <-tp.requestPriorityQueues[Priority(p)]
+			//}
 		}
 	}
 }

@@ -87,12 +87,14 @@ func (tp *ThreadPool) GetNextPrioritizedRequest() PendingRequest {
 		sort.Sort(sort.Reverse(sort.IntSlice(priorities)))
 
 		for _, p := range priorities {
-			// if len(tp.requestPriorityQueues[Priority(p)]) == 0 {
-			// 	continue
-			// }
+			if len(tp.requestPriorityQueues[Priority(p)]) == 0 {
+				continue
+			}
 
 			return <-tp.requestPriorityQueues[Priority(p)]
 		}
+
+		return <-tp.requestPriorityQueues[Priority(priorities[0])]
 	}
 }
 

@@ -84,7 +84,7 @@ func (tp *ThreadPool) Run() {
 func (tp *ThreadPool) GetNextPrioritizedRequest() PendingRequest {
 
 	for {
-		priorities := []int{} //make([]int, 0, len(tp.requestPriorityQueues))
+		priorities := []int{}
 		tp.requestQueueMutex.RLock()
 		for p := range tp.requestPriorityQueues {
 			priorities = append(priorities, int(p))
@@ -92,16 +92,16 @@ func (tp *ThreadPool) GetNextPrioritizedRequest() PendingRequest {
 		tp.requestQueueMutex.RUnlock()
 		sort.Sort(sort.Reverse(sort.IntSlice(priorities)))
 
-		tp.requestQueueMutex.RLock()
 		for _, p := range priorities {
+			tp.requestQueueMutex.RLock()
 			if len(tp.requestPriorityQueues[Priority(p)]) == 0 {
+				tp.requestQueueMutex.RUnlock()
 				continue
 			}
 			defer tp.requestQueueMutex.RUnlock()
 
 			return <-tp.requestPriorityQueues[Priority(p)]
 		}
-		tp.requestQueueMutex.RUnlock()
 	}
 }
 

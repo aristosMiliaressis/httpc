@@ -32,7 +32,7 @@ type ThreadPool struct {
 	context     context.Context
 
 	requestPriorityQueues map[Priority]RequestQueue
-	requestQueueMutex     sync.RWMutex
+	requestQueueMutex     sync.Mutex
 
 	sendRequestCallback func(uow PendingRequest)
 }
@@ -82,8 +82,8 @@ func (tp *ThreadPool) Run() {
 }
 
 func (tp *ThreadPool) GetNextPrioritizedRequest() PendingRequest {
-	tp.requestQueueMutex.RLock()
-	defer tp.requestQueueMutex.RUnlock()
+	tp.requestQueueMutex.Lock()
+	defer tp.requestQueueMutex.Unlock()
 
 	for {
 		priorities := make([]int, 0, len(tp.requestPriorityQueues))

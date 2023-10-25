@@ -5,6 +5,7 @@ import (
 	"compress/flate"
 	"compress/gzip"
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -87,7 +88,9 @@ func (tp *ThreadPool) GetNextPrioritizedRequest() PendingRequest {
 		sort.Sort(sort.Reverse(sort.IntSlice(priorities)))
 
 		for _, p := range priorities {
+			fmt.Printf("priority: %d\n", p)
 			if len(tp.requestPriorityQueues[Priority(p)]) > 0 {
+				fmt.Println("not empty")
 				return <-tp.requestPriorityQueues[Priority(p)]
 			}
 		}

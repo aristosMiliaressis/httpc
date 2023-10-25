@@ -82,8 +82,8 @@ func (tp *ThreadPool) Run() {
 }
 
 func (tp *ThreadPool) GetNextPrioritizedRequest() PendingRequest {
-	tp.requestQueueMutex.Lock()
-	defer tp.requestQueueMutex.Unlock()
+	tp.requestQueueMutex.RLock()
+	defer tp.requestQueueMutex.RUnlock()
 
 	for {
 		priorities := make([]int, 0, len(tp.requestPriorityQueues))

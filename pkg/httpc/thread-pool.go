@@ -32,7 +32,7 @@ type ThreadPool struct {
 	context     context.Context
 
 	requestPriorityQueues map[Priority]RequestQueue
-	requestQueueMutex     sync.Mutex
+	requestQueueMutex     sync.RWMutex
 
 	sendRequestCallback func(uow PendingRequest)
 }

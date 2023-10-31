@@ -161,6 +161,7 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts ClientOptions) *Mes
 
 	msg.Request = msg.Request.WithContext(httptrace.WithClientTrace(c.context, trace))
 
+	fmt.Printf("BEFORE LOCK")
 	c.ThreadPool.requestQueueMutex.Lock()
 	queue, ok := c.ThreadPool.requestPriorityQueues[opts.RequestPriority]
 	if !ok {
@@ -169,6 +170,7 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts ClientOptions) *Mes
 	}
 	c.ThreadPool.requestQueueMutex.Unlock()
 
+	fmt.Printf("BEFORE CHANNEL")
 	queue <- PendingRequest{"", msg, opts}
 
 	return msg

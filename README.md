@@ -5,8 +5,9 @@ HTTP Client Library for security tooling.
 
 ## Features
 
-- [x] promise based async interface
 - [x] request rate control  
+- [x] promise based async interface
+- [x] request priority levels
 <br>
 
 - [x] contextual information regarding http responses (request/response,timming,redirect chain, transport errors)  
@@ -36,6 +37,8 @@ HTTP Client Library for security tooling.
   - https://github.com/Danny-Dasilva/CycleTLS
 <br>
 
+- [x] configurable ip ban detection
+- [ ] apigateway based ip rotation (requires aws creds)
 <br>
 
 - [x] Raw HTTP/1 requests

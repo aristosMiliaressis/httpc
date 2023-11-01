@@ -182,7 +182,9 @@ func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts Clie
 
 	c.sleepIfNeeded(opts.Performance.Delay)
 
-	msg := MessageDuplex{}
+	msg := &MessageDuplex{
+		Resolved: make(chan bool, 1),
+	}
 	msg.Request, _ = http.NewRequest("GET", baseUrl, nil)
 
 	fmt.Println("BEFORE LOCK")
@@ -195,9 +197,9 @@ func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts Clie
 	c.ThreadPool.requestQueueMutex.Unlock()
 
 	fmt.Println("BEFORE CHANNEL")
-	queue <- PendingRequest{rawreq, &msg, opts}
+	queue <- PendingRequest{rawreq, msg, opts}
 
-	return &msg
+	return msg
 }
 
 func (c *HttpClient) sleepIfNeeded(delay Range) {

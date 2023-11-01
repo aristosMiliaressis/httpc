@@ -187,7 +187,6 @@ func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts Clie
 	}
 	msg.Request, _ = http.NewRequest("GET", baseUrl, nil)
 
-	fmt.Println("BEFORE LOCK")
 	c.ThreadPool.requestQueueMutex.Lock()
 	queue, ok := c.ThreadPool.requestPriorityQueues[opts.RequestPriority]
 	if !ok {
@@ -196,7 +195,6 @@ func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts Clie
 	}
 	c.ThreadPool.requestQueueMutex.Unlock()
 
-	fmt.Println("BEFORE CHANNEL")
 	queue <- PendingRequest{rawreq, msg, opts}
 
 	return msg

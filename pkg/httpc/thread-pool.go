@@ -38,13 +38,7 @@ func NewThreadPool(callback func(uow PendingRequest), context context.Context, r
 	}
 }
 
-// TODO: look into https://www.openmymind.net/Leaking-Goroutines/
-// https://medium.com/code-chasm/go-concurrency-pattern-worker-pool-a437117025b1
 func (tp *ThreadPool) Run() {
-
-	// temporary solution:
-	// one thread should be able to send and receive a message every second at least
-	// maxThreads := tp.Rate.RPS
 
 	for i := 1; true; i++ {
 
@@ -59,7 +53,6 @@ func (tp *ThreadPool) Run() {
 				for {
 					uow := tp.getNextPrioritizedRequest()
 
-					<-tp.Rate.RateLimiter.C
 					tp.sendRequestCallback(uow)
 					tp.Rate.Tick(time.Now())
 
@@ -72,6 +65,7 @@ func (tp *ThreadPool) Run() {
 		}
 
 		<-time.After(time.Millisecond * 500)
+		<-tp.Rate.RateLimiter.C
 	}
 }
 

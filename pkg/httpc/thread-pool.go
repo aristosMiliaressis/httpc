@@ -44,14 +44,14 @@ func (tp *ThreadPool) Run() {
 
 	// temporary solution:
 	// one thread should be able to send and receive a message every second at least
-	maxThreads := tp.Rate.RPS
+	// maxThreads := tp.Rate.RPS
 
 	for i := 1; true; i++ {
 
 		gologger.Debug().Msgf("threads: %d, desiredRate: %d currentRate: %d\n",
 			int(tp.threadCount.Load()), tp.Rate.RPS, tp.Rate.CurrentRate())
 
-		if tp.Rate.CurrentRate() < int64(tp.Rate.RPS) && int(tp.threadCount.Load()) < maxThreads {
+		if tp.Rate.CurrentRate() < int64(tp.Rate.RPS) && tp.getPendingCount() > 0 {
 
 			tp.threadCount.Add(1)
 
@@ -63,7 +63,7 @@ func (tp *ThreadPool) Run() {
 					tp.sendRequestCallback(uow)
 					tp.Rate.Tick(time.Now())
 
-					if tp.Rate.CurrentRate() > int64(tp.Rate.RPS) && int(tp.threadCount.Load()) > 1 {
+					if tp.Rate.CurrentRate() > int64(tp.Rate.RPS) || tp.getPendingCount() == 0 {
 						tp.threadCount.Add(-1)
 						return
 					}
@@ -97,4 +97,16 @@ func (tp *ThreadPool) getNextPrioritizedRequest() PendingRequest {
 			return <-queue
 		}
 	}
+}
+
+func (tp *ThreadPool) getPendingCount() int {
+	sum := 0
+
+	tp.requestQueueMutex.RLock()
+	for p := range tp.requestPriorityQueues {
+		sum += len(tp.requestPriorityQueues[p])
+	}
+	tp.requestQueueMutex.RUnlock()
+
+	return sum
 }

@@ -42,6 +42,8 @@ func (tp *ThreadPool) Run() {
 
 	for i := 1; true; i++ {
 
+		<-tp.Rate.RateLimiter.C
+
 		gologger.Debug().Msgf("threads: %d, desiredRate: %d currentRate: %d\n",
 			int(tp.threadCount.Load()), tp.Rate.RPS, tp.Rate.CurrentRate())
 
@@ -63,9 +65,6 @@ func (tp *ThreadPool) Run() {
 				}
 			}(i)
 		}
-
-		<-time.After(time.Millisecond * 500)
-		<-tp.Rate.RateLimiter.C
 	}
 }
 

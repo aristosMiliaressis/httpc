@@ -42,7 +42,7 @@ func (tp *ThreadPool) Run() {
 
 	for i := 1; true; i++ {
 
-		<-time.After(time.Microsecond * 500)
+		<-time.After(time.Millisecond * 500)
 
 		if tp.Rate.CurrentRate() < int64(tp.Rate.RPS) && tp.getPendingCount() > 0 {
 

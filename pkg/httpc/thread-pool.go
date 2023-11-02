@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/andybalholm/brotli"
-	"github.com/aristosMiliaressis/cache-prober/internal/rate"
-	"github.com/aristosMiliaressis/cache-prober/internal/util"
+	"github.com/aristosMiliaressis/httpc/internal/rate"
+	"github.com/aristosMiliaressis/httpc/internal/util"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/rawhttp"
 )
@@ -42,7 +42,7 @@ func (c *HttpClient) NewThreadPool() *ThreadPool {
 	return &ThreadPool{
 		context:               c.context,
 		sendRequestCallback:   c.handleRequest,
-		Rate:                  rate.newRateThrottle(c.Options.Performance.RequestsPerSecond),
+		Rate:                  rate.NewRateThrottle(c.Options.Performance.RequestsPerSecond),
 		requestPriorityQueues: make(map[Priority]RequestQueue),
 	}
 }
@@ -56,9 +56,9 @@ func (tp *ThreadPool) Run() {
 	for i := 1; true; i++ {
 
 		gologger.Debug().Msgf("threads: %d, desiredRate: %d currentRate: %d\n",
-			int(tp.threadCount.Load()), tp.Rate.rate, tp.Rate.CurrentRate())
+			int(tp.threadCount.Load()), tp.Rate.RPS, tp.Rate.CurrentRate())
 
-		if tp.Rate.CurrentRate() < int64(tp.Rate.rate) && int(tp.threadCount.Load()) < maxThreads {
+		if tp.Rate.CurrentRate() < int64(tp.Rate.RPS) && int(tp.threadCount.Load()) < maxThreads {
 
 			tp.threadCount.Add(1)
 
@@ -70,7 +70,7 @@ func (tp *ThreadPool) Run() {
 					tp.sendRequestCallback(uow)
 					tp.Rate.Tick(time.Now())
 
-					if tp.Rate.CurrentRate() > int64(tp.Rate.rate) && int(tp.threadCount.Load()) > 1 {
+					if tp.Rate.CurrentRate() > int64(tp.Rate.RPS) && int(tp.threadCount.Load()) > 1 {
 						tp.threadCount.Add(-1)
 						return
 					}
@@ -249,7 +249,7 @@ func (c *HttpClient) handleRequest(uow PendingRequest) {
 	// handle rate-limitting
 	if uow.Request.Response.StatusCode == 429 || uow.Request.Response.StatusCode == 529 {
 		if uow.Options.Performance.AutoRateThrottle {
-			c.ThreadPool.Rate.ChangeRate(c.ThreadPool.Rate.rate - 1)
+			c.ThreadPool.Rate.ChangeRate(c.ThreadPool.Rate.RPS - 1)
 		}
 
 		if uow.Options.Performance.ReplayRateLimitted {

@@ -7,21 +7,21 @@ import (
 )
 
 type RateThrottle struct {
-	rate int
+	RPS int
 
 	RateLimiter *time.Ticker
 	rateCounter *ring.Ring
 	rateMutex   sync.Mutex
 }
 
-func newRateThrottle(rate int) *RateThrottle {
+func NewRateThrottle(rate int) *RateThrottle {
 	r := &RateThrottle{
-		rate: rate,
+		RPS: rate,
 	}
 
-	ratemicros := 1000000/r.rate - 50000/r.rate
+	ratemicros := 1000000/r.RPS - 50000/r.RPS
 	r.RateLimiter = time.NewTicker(time.Microsecond * time.Duration(ratemicros))
-	r.rateCounter = ring.New(r.rate * 5)
+	r.rateCounter = ring.New(r.RPS * 5)
 	return r
 }
 
@@ -56,8 +56,8 @@ func (r *RateThrottle) CurrentRate() int64 {
 }
 
 func (r *RateThrottle) ChangeRate(rate int) {
-	r.rate = rate
-	ratemicros := 1000000/r.rate - 50000/r.rate
+	r.RPS = rate
+	ratemicros := 1000000/r.RPS - 50000/r.RPS
 
 	r.RateLimiter.Stop()
 	r.RateLimiter = time.NewTicker(time.Microsecond * time.Duration(ratemicros))

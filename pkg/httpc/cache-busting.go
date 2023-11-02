@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/aristosMiliaressis/cache-prober/internal/util"
+	"github.com/aristosMiliaressis/httpc/internal/util"
 )
 
 var DefaultCacheBusterParam = "cacheBuster"

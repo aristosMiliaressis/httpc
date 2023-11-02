@@ -14,8 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aristosMiliaressis/cache-prober/internal/util"
 	"github.com/aristosMiliaressis/go-ip-rotate/pkg/iprotate"
+	"github.com/aristosMiliaressis/httpc/internal/util"
 	"github.com/corpix/uarand"
 	"github.com/projectdiscovery/gologger"
 )

@@ -38,10 +38,10 @@ type PerformanceOptions struct {
 }
 
 type ErrorHandlingOptions struct {
-	ErrorPercentageThreshold    int
-	ConsecutiveErrorThreshold   int
-	IpRotateIfThresholdExheeded bool
-	RetryTransportFailures      bool
+	PercentageThreshold    int
+	ConsecutiveThreshold   int
+	IpRotateIfExheeded     bool
+	RetryTransportFailures bool
 }
 
 type Range struct {
@@ -67,7 +67,7 @@ var DefaultOptions = ClientOptions{
 		Delay:              Range{Min: 0, Max: 0},
 	},
 	ErrorHandling: ErrorHandlingOptions{
-		ErrorPercentageThreshold:  0,
-		ConsecutiveErrorThreshold: 0,
+		PercentageThreshold:  0,
+		ConsecutiveThreshold: 0,
 	},
 }

@@ -132,13 +132,19 @@ func (c *HttpClient) HandleRequest(uow PendingRequest) {
 	}
 
 	c.MessageLog = append(c.MessageLog, uow.Request)
-	if uow.RawRequest != "" {
+
+	if uow.Request.Response == nil && uow.Options.ErrorHandling.RetryTransportFailures {
+		if uow.RawRequest == "" {
+			retriedMsg := c.SendWithOptions(uow.Request.Request, uow.Options)
+			*uow.Request = *retriedMsg
+		} else {
+			retriedMsg := c.SendRawWithOptions(uow.RawRequest, uow.Request.Request.URL.String(), uow.Options)
+			*uow.Request = *retriedMsg
+		}
 		return
 	}
 
-	if uow.Request.Response == nil && uow.Options.ErrorHandling.RetryTransportFailures {
-		retriedMsg := c.SendWithOptions(uow.Request.Request, uow.Options)
-		*uow.Request = *retriedMsg
+	if uow.RawRequest != "" {
 		return
 	}
 

@@ -41,28 +41,29 @@ func (c *HttpClient) handleTransportError(msg *MessageDuplex, err error) *Messag
 	if os.IsTimeout(err) || errors.Is(err, syscall.ETIME) || errors.Is(err, syscall.ETIMEDOUT) {
 		msg.TransportError = Timeout
 		c.errorLog[Timeout.String()] += 1
-	} else if errors.Is(err, syscall.ECONNRESET) || strings.Contains(err.Error(), "An existing connection was forcibly closed") {
+	} else if errors.Is(err, syscall.ECONNRESET) ||
+		strings.Contains(err.Error(), "An existing connection was forcibly closed") ||
+		strings.Contains(err.Error(), "client connection force closed via ClientConn.Close") ||
+		strings.Contains(err.Error(), "server sent GOAWAY and closed the connection") {
 		msg.TransportError = ConnectionReset
 		c.errorLog[ConnectionReset.String()] += 1
-		// } else if strings.Contains(err.Error(), "invalid header field name") {
-		// 	msg.TransportError = UnknownError
 	} else {
 		gologger.Error().Msg(err.Error())
 		msg.TransportError = UnknownError
 		c.errorLog[UnknownError.String()] += 1
 	}
 
-	if c.Options.ErrorHandling.ConsecutiveErrorThreshold != 0 &&
-		c.consecutiveErrors > c.Options.ErrorHandling.ConsecutiveErrorThreshold {
-		gologger.Fatal().Msgf("Exceeded %d consecutive errors threshold, exiting.", c.Options.ErrorHandling.ConsecutiveErrorThreshold)
+	if c.Options.ErrorHandling.ConsecutiveThreshold != 0 &&
+		c.consecutiveErrors > c.Options.ErrorHandling.ConsecutiveThreshold {
+		gologger.Fatal().Msgf("Exceeded %d consecutive errors threshold, exiting.", c.Options.ErrorHandling.ConsecutiveThreshold)
 		os.Exit(1)
 	}
 	c.errorMutex.Unlock()
 
-	if c.Options.ErrorHandling.ErrorPercentageThreshold != 0 &&
+	if c.Options.ErrorHandling.PercentageThreshold != 0 &&
 		c.totalSuccessful+c.totalErrors > 40 &&
-		(c.totalSuccessful == 0 || int(100.0/(float64((c.totalSuccessful+c.totalErrors))/float64(c.totalErrors))) > c.Options.ErrorHandling.ErrorPercentageThreshold) {
-		gologger.Fatal().Msgf("%d errors out of %d requests exceeded %d%% error threshold, exiting.", c.totalErrors, c.totalSuccessful+c.totalErrors, c.Options.ErrorHandling.ErrorPercentageThreshold)
+		(c.totalSuccessful == 0 || int(100.0/(float64((c.totalSuccessful+c.totalErrors))/float64(c.totalErrors))) > c.Options.ErrorHandling.PercentageThreshold) {
+		gologger.Fatal().Msgf("%d errors out of %d requests exceeded %d%% error threshold, exiting.", c.totalErrors, c.totalSuccessful+c.totalErrors, c.Options.ErrorHandling.PercentageThreshold)
 		os.Exit(1)
 	}
 
@@ -72,16 +73,16 @@ func (c *HttpClient) handleTransportError(msg *MessageDuplex, err error) *Messag
 }
 
 func (c *HttpClient) handleHttpError(msg *MessageDuplex) {
-	if c.Options.ErrorHandling.ConsecutiveErrorThreshold != 0 &&
-		c.consecutiveErrors > c.Options.ErrorHandling.ConsecutiveErrorThreshold {
-		gologger.Fatal().Msgf("Exceeded %d consecutive errors threshold, exiting.", c.Options.ErrorHandling.ConsecutiveErrorThreshold)
+	if c.Options.ErrorHandling.ConsecutiveThreshold != 0 &&
+		c.consecutiveErrors > c.Options.ErrorHandling.ConsecutiveThreshold {
+		gologger.Fatal().Msgf("Exceeded %d consecutive errors threshold, exiting.", c.Options.ErrorHandling.ConsecutiveThreshold)
 		os.Exit(1)
 	}
 
-	if c.Options.ErrorHandling.ErrorPercentageThreshold != 0 &&
+	if c.Options.ErrorHandling.PercentageThreshold != 0 &&
 		c.totalSuccessful+c.totalErrors > 40 &&
-		(c.totalSuccessful == 0 || int(100.0/(float64((c.totalSuccessful+c.totalErrors))/float64(c.totalErrors))) > c.Options.ErrorHandling.ErrorPercentageThreshold) {
-		gologger.Fatal().Msgf("%d errors out of %d requests exceeded %d%% error threshold, exiting.", c.totalErrors, c.totalSuccessful+c.totalErrors, c.Options.ErrorHandling.ErrorPercentageThreshold)
+		(c.totalSuccessful == 0 || int(100.0/(float64((c.totalSuccessful+c.totalErrors))/float64(c.totalErrors))) > c.Options.ErrorHandling.PercentageThreshold) {
+		gologger.Fatal().Msgf("%d errors out of %d requests exceeded %d%% error threshold, exiting.", c.totalErrors, c.totalSuccessful+c.totalErrors, c.Options.ErrorHandling.PercentageThreshold)
 		os.Exit(1)
 	}
 }
@@ -113,7 +114,7 @@ func (c *HttpClient) verifyIpBan(msg *MessageDuplex) error {
 		i += 1
 	}
 
-	if c.Options.ErrorHandling.IpRotateIfThresholdExheeded {
+	if c.Options.ErrorHandling.IpRotateIfExheeded {
 		return c.enableIpRotate(msg.Request.URL)
 	} else {
 		//gologger.Fatal().Msg("IP ban detected, exiting.")

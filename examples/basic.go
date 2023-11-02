@@ -19,7 +19,7 @@ func main() {
 	gologger.DefaultLogger.SetMaxLevel(levels.LevelVerbose)
 	opts.Connection.ProxyUrl = "http://127.0.0.1:8080"
 	opts.Performance.Timeout = 5
-	opts.ErrorHandling.ConsecutiveErrorThreshold = 100
+	opts.ErrorHandling.ConsecutiveThreshold = 100
 	ctx := context.Background()
 
 	client := httpc.NewHttpClient(opts, ctx)

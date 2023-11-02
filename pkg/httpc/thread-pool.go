@@ -42,13 +42,12 @@ func (tp *ThreadPool) Run() {
 
 	for i := 1; true; i++ {
 
-		<-tp.Rate.RateLimiter.C
-
 		gologger.Debug().Msgf("threads: %d, desiredRate: %d currentRate: %d\n",
 			int(tp.threadCount.Load()), tp.Rate.RPS, tp.Rate.CurrentRate())
 
 		if tp.Rate.CurrentRate() < int64(tp.Rate.RPS) && tp.getPendingCount() > 0 {
 
+			<-tp.Rate.RateLimiter.C
 			tp.threadCount.Add(1)
 
 			go func(workerID int) {

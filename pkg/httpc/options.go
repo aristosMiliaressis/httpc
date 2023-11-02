@@ -49,6 +49,8 @@ type Range struct {
 	Max float64
 }
 
+type Priority int
+
 var DefaultOptions = ClientOptions{
 	SimulateBrowserRequests: true,
 	MaintainCookieJar:       true,

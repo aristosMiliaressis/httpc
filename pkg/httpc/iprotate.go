@@ -4,13 +4,14 @@ import (
 	"net/url"
 
 	"github.com/aristosMiliaressis/go-ip-rotate/pkg/iprotate"
+	"github.com/aristosMiliaressis/httpc/internal/util"
 )
 
 // TODO: update request url for next requests
 func (c *HttpClient) enableIpRotate(url *url.URL) error {
 	var err error
 
-	baseUrl := GetBaseUrl(url)
+	baseUrl := util.GetBaseUrl(url)
 
 	c.errorMutex.Lock()
 

@@ -1,4 +1,4 @@
-package httpc
+package util
 
 import (
 	"fmt"
@@ -29,7 +29,7 @@ var secFetchDestMap = map[string]string{
 	"mp3":   "audio",
 }
 
-func simulateBrowserRequest(req *http.Request) {
+func SimulateBrowserRequest(req *http.Request) {
 
 	extensions := make([]string, len(secFetchDestMap))
 

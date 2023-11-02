@@ -1,4 +1,4 @@
-package httpc
+package rate
 
 import (
 	"container/ring"

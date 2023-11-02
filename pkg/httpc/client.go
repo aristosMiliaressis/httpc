@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aristosMiliaressis/cache-prober/internal/util"
 	"github.com/aristosMiliaressis/go-ip-rotate/pkg/iprotate"
 	"github.com/corpix/uarand"
 	"github.com/projectdiscovery/gologger"
@@ -65,44 +66,6 @@ func (c *HttpClient) Close() {
 	}
 }
 
-func createInternalHttpClient(opts ClientOptions) http.Client {
-	proxyURL := http.ProxyFromEnvironment
-	if len(opts.Connection.ProxyUrl) > 0 {
-		pu, err := url.Parse(opts.Connection.ProxyUrl)
-		if err == nil {
-			proxyURL = http.ProxyURL(pu)
-		}
-	}
-
-	if opts.Connection.ForceAttemptHTTP1 {
-		os.Setenv("GODEBUG", "http2client=0")
-	}
-
-	return http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse },
-		Timeout:       time.Duration(time.Duration(opts.Performance.Timeout) * time.Second),
-		Transport: &http.Transport{
-			Proxy:             proxyURL,
-			ForceAttemptHTTP2: opts.Connection.ForceAttemptHTTP2,
-			//DisableKeepAlives:   true,
-			DisableCompression:  true,
-			MaxIdleConns:        1000,
-			MaxIdleConnsPerHost: 500,
-			MaxConnsPerHost:     500,
-			DialContext: (&net.Dialer{
-				Timeout: time.Duration(time.Duration(opts.Performance.Timeout) * time.Second),
-			}).DialContext,
-			TLSHandshakeTimeout: time.Duration(time.Duration(opts.Performance.Timeout) * time.Second),
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-				MinVersion:         tls.VersionSSL30,
-				Renegotiation:      tls.RenegotiateOnceAsClient,
-				ServerName:         opts.Connection.SNI,
-			},
-		},
-	}
-}
-
 func (c *HttpClient) Send(req *http.Request) *MessageDuplex {
 	return c.SendWithOptions(req, c.Options)
 }
@@ -117,7 +80,7 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts ClientOptions) *Mes
 	}
 
 	if c.Options.SimulateBrowserRequests {
-		simulateBrowserRequest(msg.Request)
+		util.SimulateBrowserRequest(msg.Request)
 	}
 
 	if c.Options.RandomizeUserAgent {
@@ -200,32 +163,6 @@ func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts Clie
 	return msg
 }
 
-func (c *HttpClient) sleepIfNeeded(delay Range) {
-
-	sTime := delay.Min + rand.Float64()*(delay.Max-delay.Min)
-	sleepDuration, _ := time.ParseDuration(fmt.Sprintf("%dms", int(sTime*1000)))
-
-	select {
-	case <-c.context.Done():
-	case <-time.After(sleepDuration):
-	}
-}
-
-func GetRedirectLocation(resp *http.Response) string {
-
-	requestUrl, _ := url.Parse(resp.Request.URL.String())
-	requestUrl.RawQuery = ""
-
-	redirectLocation := ""
-	if loc, ok := resp.Header["Location"]; ok {
-		if len(loc) > 0 {
-			redirectLocation = loc[0]
-		}
-	}
-
-	return ToAbsolute(resp.Request.URL.String(), redirectLocation)
-}
-
 func (c *HttpClient) ConnectRequest(proxyUrl *url.URL, destUrl *url.URL, opts ClientOptions) *MessageDuplex {
 	msg := MessageDuplex{}
 	c.MessageLog = append(c.MessageLog, &msg)
@@ -269,11 +206,51 @@ func (c *HttpClient) ConnectRequest(proxyUrl *url.URL, destUrl *url.URL, opts Cl
 	return &msg
 }
 
-func Contains[T int | string](s []T, e T) bool {
-	for _, a := range s {
-		if a == e {
-			return true
+func createInternalHttpClient(opts ClientOptions) http.Client {
+	proxyURL := http.ProxyFromEnvironment
+	if len(opts.Connection.ProxyUrl) > 0 {
+		pu, err := url.Parse(opts.Connection.ProxyUrl)
+		if err == nil {
+			proxyURL = http.ProxyURL(pu)
 		}
 	}
-	return false
+
+	if opts.Connection.ForceAttemptHTTP1 {
+		os.Setenv("GODEBUG", "http2client=0")
+	}
+
+	return http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse },
+		Timeout:       time.Duration(time.Duration(opts.Performance.Timeout) * time.Second),
+		Transport: &http.Transport{
+			Proxy:             proxyURL,
+			ForceAttemptHTTP2: opts.Connection.ForceAttemptHTTP2,
+			//DisableKeepAlives:   true,
+			DisableCompression:  true,
+			MaxIdleConns:        1000,
+			MaxIdleConnsPerHost: 500,
+			MaxConnsPerHost:     500,
+			DialContext: (&net.Dialer{
+				Timeout: time.Duration(time.Duration(opts.Performance.Timeout) * time.Second),
+			}).DialContext,
+			TLSHandshakeTimeout: time.Duration(time.Duration(opts.Performance.Timeout) * time.Second),
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+				MinVersion:         tls.VersionSSL30,
+				Renegotiation:      tls.RenegotiateOnceAsClient,
+				ServerName:         opts.Connection.SNI,
+			},
+		},
+	}
+}
+
+func (c *HttpClient) sleepIfNeeded(delay Range) {
+
+	sTime := delay.Min + rand.Float64()*(delay.Max-delay.Min)
+	sleepDuration, _ := time.ParseDuration(fmt.Sprintf("%dms", int(sTime*1000)))
+
+	select {
+	case <-c.context.Done():
+	case <-time.After(sleepDuration):
+	}
 }

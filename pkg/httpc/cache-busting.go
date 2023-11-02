@@ -5,6 +5,8 @@ import (
 	"math/rand"
 	"net/http"
 	"time"
+
+	"github.com/aristosMiliaressis/cache-prober/internal/util"
 )
 
 var DefaultCacheBusterParam = "cacheBuster"
@@ -34,14 +36,6 @@ var AggressiveCacheBusting = CacheBustingOptions{
 	AcceptLanguage: true,
 	Hostname:       false,
 	Port:           false,
-}
-
-func (opts CacheBustingOptions) getCacheBuster() string {
-	if opts.StaticCacheBuster == "" {
-		return RandomString(12)
-	}
-
-	return opts.StaticCacheBuster
 }
 
 func (opts CacheBustingOptions) Apply(req *http.Request) {
@@ -164,11 +158,10 @@ func (opts CacheBustingOptions) Clear(req *http.Request) {
 	}
 }
 
-func RandomString(length int) string {
-	var chars = []rune("abcdefghijklmnopqrstuvwxyz")
-	s := make([]rune, length)
-	for i := range s {
-		s[i] = chars[rand.Intn(len(chars))]
+func (opts CacheBustingOptions) getCacheBuster() string {
+	if opts.StaticCacheBuster == "" {
+		return util.RandomString(12)
 	}
-	return string(s)
+
+	return opts.StaticCacheBuster
 }

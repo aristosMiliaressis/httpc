@@ -1,9 +1,29 @@
-package httpc
+package util
 
 import (
+	"net/http"
 	"net/url"
 	"strings"
+
+	"golang.org/x/net/publicsuffix"
 )
+
+func IsCrossOrigin(urlA string, urlB string) bool {
+	a, _ := url.Parse(urlA)
+	b, _ := url.Parse(urlB)
+
+	return a.Scheme != b.Scheme || a.Host != b.Host
+}
+
+func IsCrossSite(urlA string, urlB string) bool {
+	a, _ := url.Parse(urlA)
+	b, _ := url.Parse(urlB)
+
+	eTLDPlus1A, _ := publicsuffix.EffectiveTLDPlusOne(a.Hostname())
+	eTLDPlus1B, _ := publicsuffix.EffectiveTLDPlusOne(b.Hostname())
+
+	return eTLDPlus1A != eTLDPlus1B
+}
 
 func ToAbsolute(src string, target string) string {
 
@@ -43,4 +63,19 @@ func ToAbsolute(src string, target string) string {
 func GetBaseUrl(url *url.URL) *url.URL {
 	baseUrl, _ := url.Parse(url.Scheme + "://" + url.Host)
 	return baseUrl
+}
+
+func GetRedirectLocation(resp *http.Response) string {
+
+	requestUrl, _ := url.Parse(resp.Request.URL.String())
+	requestUrl.RawQuery = ""
+
+	redirectLocation := ""
+	if loc, ok := resp.Header["Location"]; ok {
+		if len(loc) > 0 {
+			redirectLocation = loc[0]
+		}
+	}
+
+	return ToAbsolute(resp.Request.URL.String(), redirectLocation)
 }

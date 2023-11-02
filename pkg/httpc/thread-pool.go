@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/andybalholm/brotli"
+	"github.com/aristosMiliaressis/cache-prober/internal/rate"
+	"github.com/aristosMiliaressis/cache-prober/internal/util"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/rawhttp"
 )
@@ -24,11 +26,10 @@ type PendingRequest struct {
 	Options    ClientOptions
 }
 type RequestQueue chan PendingRequest
-type Priority int
 
 type ThreadPool struct {
 	threadCount atomic.Int64
-	Rate        *RateThrottle
+	Rate        *rate.RateThrottle
 	context     context.Context
 
 	requestPriorityQueues map[Priority]RequestQueue
@@ -40,8 +41,8 @@ type ThreadPool struct {
 func (c *HttpClient) NewThreadPool() *ThreadPool {
 	return &ThreadPool{
 		context:               c.context,
-		sendRequestCallback:   c.HandleRequest,
-		Rate:                  newRateThrottle(c.Options.Performance.RequestsPerSecond),
+		sendRequestCallback:   c.handleRequest,
+		Rate:                  rate.newRateThrottle(c.Options.Performance.RequestsPerSecond),
 		requestPriorityQueues: make(map[Priority]RequestQueue),
 	}
 }
@@ -63,7 +64,7 @@ func (tp *ThreadPool) Run() {
 
 			go func(workerID int) {
 				for {
-					uow := tp.GetNextPrioritizedRequest()
+					uow := tp.getNextPrioritizedRequest()
 
 					<-tp.Rate.RateLimiter.C
 					tp.sendRequestCallback(uow)
@@ -81,7 +82,7 @@ func (tp *ThreadPool) Run() {
 	}
 }
 
-func (tp *ThreadPool) GetNextPrioritizedRequest() PendingRequest {
+func (tp *ThreadPool) getNextPrioritizedRequest() PendingRequest {
 
 	for {
 		priorities := []int{}
@@ -105,7 +106,7 @@ func (tp *ThreadPool) GetNextPrioritizedRequest() PendingRequest {
 	}
 }
 
-func (c *HttpClient) HandleRequest(uow PendingRequest) {
+func (c *HttpClient) handleRequest(uow PendingRequest) {
 	defer func() { uow.Request.Resolved <- true }()
 
 	var sendErr error
@@ -193,7 +194,7 @@ func (c *HttpClient) HandleRequest(uow PendingRequest) {
 	}
 
 	// handle http errors
-	if uow.Request.TransportError != NoError || (uow.Request.Response.StatusCode >= 400 && !Contains(safeErrorsList, uow.Request.Response.StatusCode)) {
+	if uow.Request.TransportError != NoError || (uow.Request.Response.StatusCode >= 400 && !util.Contains(safeErrorsList, uow.Request.Response.StatusCode)) {
 		c.totalErrors += 1
 		c.consecutiveErrors += 1
 		c.handleHttpError(uow.Request)
@@ -205,10 +206,10 @@ func (c *HttpClient) HandleRequest(uow PendingRequest) {
 
 	// handle redirects
 	if uow.Request.Response.StatusCode >= 300 && uow.Request.Response.StatusCode <= 399 {
-		absRedirect := GetRedirectLocation(uow.Request.Response)
+		absRedirect := util.GetRedirectLocation(uow.Request.Response)
 
-		uow.Request.CrossOriginRedirect = IsCrossOrigin(uow.Request.Request.URL.String(), absRedirect)
-		uow.Request.CrossSiteRedirect = IsCrossSite(uow.Request.Request.URL.String(), absRedirect)
+		uow.Request.CrossOriginRedirect = util.IsCrossOrigin(uow.Request.Request.URL.String(), absRedirect)
+		uow.Request.CrossSiteRedirect = util.IsCrossSite(uow.Request.Request.URL.String(), absRedirect)
 
 		if uow.Options.Redirection.PreventCrossOriginRedirects && uow.Request.CrossOriginRedirect {
 			return

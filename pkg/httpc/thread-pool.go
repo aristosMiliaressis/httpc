@@ -58,7 +58,7 @@ func (tp *ThreadPool) Run() {
 					tp.sendRequestCallback(uow)
 					tp.Rate.Tick(time.Now())
 
-					if tp.Rate.CurrentRate() > int64(tp.Rate.RPS) || tp.getPendingCount() == 0 {
+					if (tp.Rate.CurrentRate() > int64(tp.Rate.RPS) || tp.getPendingCount() == 0) && int(tp.threadCount.Load()) > 0 {
 						tp.threadCount.Add(-1)
 						return
 					}

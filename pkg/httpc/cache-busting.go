@@ -58,7 +58,7 @@ func (opts CacheBustingOptions) Apply(req *http.Request) {
 
 	if opts.Accept {
 		if accept, ok := req.Header["Accept"]; !ok && accept == nil {
-			req.Header.Add("Accept", "*/*, text/"+opts.getCacheBuster())
+			req.Header.Add("Accept", "*/*, text/"+opts.getCacheBuster()+";q=0.1")
 		} else {
 			req.Header["Accept"][0] = req.Header["Accept"][0] + ", text/" + opts.getCacheBuster()
 		}

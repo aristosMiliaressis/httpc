@@ -102,9 +102,9 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts ClientOptions) *Mes
 		msg.Request.Header.Set(k, v[0])
 	}
 
-	if opts.Connection.ForceAttemptHTTP2 {
+	if req.ProtoMajor == 2 {
 		msg.Request.Header.Del("Connection")
-		//msg.Request.Header.Del("Upgrade")
+		msg.Request.Header.Del("Upgrade")
 		msg.Request.Header.Del("Transfer-Encoding")
 	}
 

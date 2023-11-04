@@ -109,7 +109,7 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts ClientOptions) *Mes
 	}
 
 	for k, v := range c.GetCookieJar() {
-		if ContainsCookie(msg.Request, k) {
+		if ContainsCookie(msg.Request, k) || util.Contains(opts.ExcludeCookies, k) {
 			continue
 		}
 		msg.Request.AddCookie(&http.Cookie{Name: k, Value: v})

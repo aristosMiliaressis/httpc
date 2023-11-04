@@ -6,6 +6,7 @@ type ClientOptions struct {
 	MaintainCookieJar       bool
 	DefaultHeaders          map[string]string
 	RequestPriority         Priority
+	ExcludeCookies          []string
 
 	Connection    ConnectionOptions
 	CacheBusting  CacheBustingOptions

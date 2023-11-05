@@ -230,9 +230,9 @@ func createInternalHttpClient(opts ClientOptions) http.Client {
 		CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse },
 		Timeout:       time.Duration(time.Duration(opts.Performance.Timeout) * time.Second),
 		Transport: &http.Transport{
-			Proxy:             proxyURL,
-			ForceAttemptHTTP2: opts.Connection.ForceAttemptHTTP2,
-			//DisableKeepAlives:   true,
+			Proxy:               proxyURL,
+			ForceAttemptHTTP2:   opts.Connection.ForceAttemptHTTP2,
+			DisableKeepAlives:   opts.Connection.DisableKeepAlives,
 			DisableCompression:  true,
 			MaxIdleConns:        1000,
 			MaxIdleConnsPerHost: 500,

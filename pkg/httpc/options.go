@@ -19,6 +19,7 @@ type ConnectionOptions struct {
 	ProxyUrl          string
 	ForceAttemptHTTP1 bool
 	ForceAttemptHTTP2 bool
+	DisableKeepAlives bool
 	SNI               string
 }
 

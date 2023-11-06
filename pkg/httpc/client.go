@@ -9,13 +9,13 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net"
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -46,7 +46,8 @@ type HttpClient struct {
 	totalSuccessful   int
 	consecutiveErrors int
 
-	apiGateways map[string]*iprotate.ApiEndpoint // make concurrent
+	apiGateways     map[string]*iprotate.ApiEndpoint
+	apiGatewayMutex sync.Mutex
 }
 
 func NewHttpClient(opts ClientOptions, ctx context.Context) *HttpClient {
@@ -68,6 +69,12 @@ func NewHttpClient(opts ClientOptions, ctx context.Context) *HttpClient {
 }
 
 func (c *HttpClient) Close() {
+	c.apiGatewayMutex.Lock()
+	for k := range c.apiGateways {
+		c.apiGateways[k].Delete()
+	}
+	c.apiGatewayMutex.Unlock()
+
 	for k := range c.ThreadPool.requestPriorityQueues {
 		close(c.ThreadPool.requestPriorityQueues[k])
 	}
@@ -86,6 +93,21 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts ClientOptions) *Mes
 		Resolved: make(chan bool, 1),
 	}
 
+	if len(c.apiGateways) > 0 {
+		c.apiGatewayMutex.Lock()
+		for gateway := range c.apiGateways {
+			if strings.Contains(req.URL.String(), gateway) {
+				replacedUrl := strings.Replace(req.URL.String(), gateway, c.apiGateways[gateway].ProxyUrl, 1)
+				gatewayUrl, err := url.Parse(replacedUrl)
+				if err != nil {
+					gologger.Fatal().Msgf("failed to update url to ip-rotate url")
+				}
+				msg.Request.URL = gatewayUrl
+			}
+		}
+		c.apiGatewayMutex.Unlock()
+	}
+
 	if c.Options.SimulateBrowserRequests {
 		util.SimulateBrowserRequest(msg.Request)
 	}
@@ -98,11 +120,11 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts ClientOptions) *Mes
 		msg.Request.Header.Set(k, v)
 	}
 
-	for k, v := range req.Header {
+	for k, v := range msg.Request.Header {
 		msg.Request.Header.Set(k, v[0])
 	}
 
-	if req.ProtoMajor == 2 {
+	if msg.Request.ProtoMajor == 2 {
 		msg.Request.Header.Del("Connection")
 		msg.Request.Header.Del("Upgrade")
 		msg.Request.Header.Del("Transfer-Encoding")
@@ -243,7 +265,7 @@ func createInternalHttpClient(opts ClientOptions) http.Client {
 			TLSHandshakeTimeout: time.Duration(time.Duration(opts.Performance.Timeout) * time.Second),
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,
-				MinVersion:         tls.VersionSSL30,
+				MinVersion:         tls.VersionTLS10,
 				Renegotiation:      tls.RenegotiateOnceAsClient,
 				ServerName:         opts.Connection.SNI,
 			},
@@ -313,15 +335,15 @@ func (c *HttpClient) handleResponse(uow PendingRequest) {
 			reader, readErr := gzip.NewReader(uow.Request.Response.Body)
 			if readErr == nil {
 				defer reader.Close()
-				body, dcprsErr = ioutil.ReadAll(reader)
+				body, dcprsErr = io.ReadAll(reader)
 			}
 		case "br":
 			reader := brotli.NewReader(uow.Request.Response.Body)
-			body, dcprsErr = ioutil.ReadAll(reader)
+			body, dcprsErr = io.ReadAll(reader)
 		case "deflate":
 			reader := flate.NewReader(uow.Request.Response.Body)
 			defer reader.Close()
-			body, dcprsErr = ioutil.ReadAll(reader)
+			body, dcprsErr = io.ReadAll(reader)
 		default:
 			body, dcprsErr = io.ReadAll(uow.Request.Response.Body)
 		}

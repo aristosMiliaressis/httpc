@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/projectdiscovery/gologger"
 )
@@ -30,7 +31,8 @@ func (e TransportError) MarshalJSON() ([]byte, error) {
 }
 
 var safeErrorsList = []int{401, 402, 404, 405, 406, 407, 410, 411, 412, 413, 414, 415, 416, 417, 426, 431, 429, 500, 501}
-var possiblyProblematicErrorCodes = []int{400, 403, 409, 402, 418, 420, 450, 451, 503, 504, 525, 530}
+
+//var possiblyProblematicErrorCodes = []int{400, 403, 409, 402, 418, 420, 450, 451, 503, 504, 525, 530}
 
 func (c *HttpClient) handleTransportError(msg *MessageDuplex, err error) *MessageDuplex {
 
@@ -56,7 +58,7 @@ func (c *HttpClient) handleTransportError(msg *MessageDuplex, err error) *Messag
 	if c.Options.ErrorHandling.ConsecutiveThreshold != 0 &&
 		c.consecutiveErrors > c.Options.ErrorHandling.ConsecutiveThreshold {
 		gologger.Fatal().Msgf("Exceeded %d consecutive errors threshold, exiting.", c.Options.ErrorHandling.ConsecutiveThreshold)
-		os.Exit(1)
+		c.verifyIpBan(msg)
 	}
 	c.errorMutex.Unlock()
 
@@ -64,7 +66,7 @@ func (c *HttpClient) handleTransportError(msg *MessageDuplex, err error) *Messag
 		c.totalSuccessful+c.totalErrors > 40 &&
 		(c.totalSuccessful == 0 || int(100.0/(float64((c.totalSuccessful+c.totalErrors))/float64(c.totalErrors))) > c.Options.ErrorHandling.PercentageThreshold) {
 		gologger.Fatal().Msgf("%d errors out of %d requests exceeded %d%% error threshold, exiting.", c.totalErrors, c.totalSuccessful+c.totalErrors, c.Options.ErrorHandling.PercentageThreshold)
-		os.Exit(1)
+		c.verifyIpBan(msg)
 	}
 
 	gologger.Debug().Msgf("%s %s\n", msg.Request.URL.String(), msg.TransportError)
@@ -76,18 +78,18 @@ func (c *HttpClient) handleHttpError(msg *MessageDuplex) {
 	if c.Options.ErrorHandling.ConsecutiveThreshold != 0 &&
 		c.consecutiveErrors > c.Options.ErrorHandling.ConsecutiveThreshold {
 		gologger.Fatal().Msgf("Exceeded %d consecutive errors threshold, exiting.", c.Options.ErrorHandling.ConsecutiveThreshold)
-		os.Exit(1)
+		c.verifyIpBan(msg)
 	}
 
 	if c.Options.ErrorHandling.PercentageThreshold != 0 &&
 		c.totalSuccessful+c.totalErrors > 40 &&
 		(c.totalSuccessful == 0 || int(100.0/(float64((c.totalSuccessful+c.totalErrors))/float64(c.totalErrors))) > c.Options.ErrorHandling.PercentageThreshold) {
 		gologger.Fatal().Msgf("%d errors out of %d requests exceeded %d%% error threshold, exiting.", c.totalErrors, c.totalSuccessful+c.totalErrors, c.Options.ErrorHandling.PercentageThreshold)
-		os.Exit(1)
+		c.verifyIpBan(msg)
 	}
 }
 
-func (c *HttpClient) verifyIpBan(msg *MessageDuplex) error {
+func (c *HttpClient) verifyIpBan(msg *MessageDuplex) {
 
 	messages := c.MessageLog.Search(func(e *MessageDuplex) bool {
 		if msg.Response == nil {
@@ -97,28 +99,27 @@ func (c *HttpClient) verifyIpBan(msg *MessageDuplex) error {
 		}
 	})
 
-	i := 0
-	for {
-		if i >= len(messages) || i > 3 {
-			break
-		}
-		req := messages[i].Request.Clone(c.context)
+	c.ThreadPool.Rate.ChangeRate(0)
+	<-time.After(time.Second * 5)
 
-		newMsg := c.Send(req)
-		if msg.TransportError != NoError && newMsg.TransportError != msg.TransportError {
-			return nil
-		} else if msg.TransportError == NoError && newMsg.Response != nil && newMsg.Response.Status != msg.Response.Status {
-			return nil
-		}
+	req := messages[0].Request.Clone(c.context)
 
-		i += 1
+	opts := c.Options
+	opts.RequestPriority = 1000
+	newMsg := c.Send(req)
+
+	c.ThreadPool.Rate.ChangeRate(1)
+	<-newMsg.Resolved
+
+	if msg.TransportError != NoError && newMsg.TransportError != msg.TransportError {
+		return
+	} else if msg.TransportError == NoError && newMsg.Response != nil && newMsg.Response.Status != msg.Response.Status {
+		return
 	}
 
 	if c.Options.ErrorHandling.IpRotateIfExheeded {
-		return c.enableIpRotate(msg.Request.URL)
+		c.enableIpRotate(msg.Request.URL)
 	} else {
-		//gologger.Fatal().Msg("IP ban detected, exiting.")
+		gologger.Fatal().Msg("IP ban detected, exiting.")
 	}
-
-	return nil
 }

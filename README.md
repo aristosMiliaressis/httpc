@@ -37,14 +37,16 @@ HTTP Client Library for security tooling.
   - https://github.com/Danny-Dasilva/CycleTLS
 <br>
 
-- [x] configurable ip ban detection
-- [ ] apigateway based ip rotation (requires aws creds)
+- [ ] configurable ratelimit, ip ban & server outage detection & response
+- [x] apigateway based ip rotation (requires aws creds)
 <br>
 
+- [x] option to ignore ALPN and attempt HTTP/1 or HTTP/2
+- [x] option to disable connection reuse
 - [x] Raw HTTP/1 requests
 - [ ] Raw HTTP/2 requests
 - [ ] Raw HTTP/3 requests
-- [x] option to ignore ALPN and attempt HTTP/1 or HTTP/2
+- [ ] HTTP Pipelining
 - [x] SNI injection      
 - [x] CONNECT method support 
 <br>

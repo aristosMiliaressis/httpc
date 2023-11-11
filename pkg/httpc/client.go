@@ -343,6 +343,7 @@ func (c *HttpClient) handleResponse(uow PendingRequest) {
 	var dcprsErr error
 	if uow.Message.Response != nil && uow.Message.Response.Body != nil {
 		var body []byte
+		orig := bytes.NewBuffer(body)
 		switch uow.Message.Response.Header.Get("Content-Encoding") {
 		case "gzip":
 			reader, readErr := gzip.NewReader(uow.Message.Response.Body)
@@ -350,7 +351,7 @@ func (c *HttpClient) handleResponse(uow PendingRequest) {
 				defer reader.Close()
 				body, dcprsErr = io.ReadAll(reader)
 			} else {
-				body, dcprsErr = io.ReadAll(uow.Message.Response.Body)
+				body, dcprsErr = io.ReadAll(orig)
 			}
 		case "br":
 			reader := brotli.NewReader(uow.Message.Response.Body)

@@ -350,7 +350,7 @@ func (c *HttpClient) handleResponse(uow PendingRequest) {
 				defer reader.Close()
 				body, dcprsErr = io.ReadAll(reader)
 			} else {
-				dcprsErr = readErr
+				body, dcprsErr = io.ReadAll(uow.Message.Response.Body)
 			}
 		case "br":
 			reader := brotli.NewReader(uow.Message.Response.Body)

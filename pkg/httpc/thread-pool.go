@@ -13,32 +13,39 @@ import (
 
 type PendingRequest struct {
 	RawRequest string
-	Request    *MessageDuplex
+	Message    *MessageDuplex
 	Options    ClientOptions
 }
 type RequestQueue chan PendingRequest
 
 type ThreadPool struct {
-	threadCount atomic.Int64
-	Rate        *rate.RateThrottle
-	context     context.Context
+	Rate    *rate.RateThrottle
+	context context.Context
 
-	requestPriorityQueues map[Priority]RequestQueue
-	requestQueueMutex     sync.RWMutex
+	queuePriorityMap   map[Priority]RequestQueue
+	queuePriorityMutex sync.RWMutex
+	queueBufferSize    int
 
-	sendRequestCallback func(uow PendingRequest)
+	processCallback func(uow PendingRequest)
 }
 
-func NewThreadPool(callback func(uow PendingRequest), context context.Context, rps int) *ThreadPool {
+func (tp *ThreadPool) NewRequestQueue() RequestQueue {
+	return make(RequestQueue, tp.queueBufferSize)
+}
+
+func NewThreadPool(callback func(uow PendingRequest), context context.Context, rps int, bufferSize int) *ThreadPool {
 	return &ThreadPool{
-		context:               context,
-		sendRequestCallback:   callback,
-		Rate:                  rate.NewRateThrottle(rps),
-		requestPriorityQueues: make(map[Priority]RequestQueue),
+		context:          context,
+		queueBufferSize:  bufferSize,
+		processCallback:  callback,
+		Rate:             rate.NewRateThrottle(rps),
+		queuePriorityMap: make(map[Priority]RequestQueue),
 	}
 }
 
 func (tp *ThreadPool) Run() {
+
+	var threadCount atomic.Int64
 
 	for i := 1; true; i++ {
 
@@ -47,20 +54,20 @@ func (tp *ThreadPool) Run() {
 		if tp.Rate.CurrentRate() < int64(tp.Rate.RPS) && tp.getPendingCount() > 0 {
 
 			<-tp.Rate.RateLimiter.C
-			tp.threadCount.Add(1)
+			threadCount.Add(1)
 
 			gologger.Debug().Msgf("threads: %d, desiredRate: %d currentRate: %d\n",
-				int(tp.threadCount.Load()), tp.Rate.RPS, tp.Rate.CurrentRate())
+				int(threadCount.Load()), tp.Rate.RPS, tp.Rate.CurrentRate())
 
 			go func(workerID int) {
 				for {
 					uow := tp.getNextPrioritizedRequest()
 
-					tp.sendRequestCallback(uow)
+					tp.processCallback(uow)
 					tp.Rate.Tick(time.Now())
 
-					if (tp.Rate.CurrentRate() > int64(tp.Rate.RPS) || tp.getPendingCount() == 0) && int(tp.threadCount.Load()) > 1 {
-						tp.threadCount.Add(-1)
+					if (tp.Rate.CurrentRate() > int64(tp.Rate.RPS) || tp.getPendingCount() == 0) && int(threadCount.Load()) > 1 {
+						threadCount.Add(-1)
 						return
 					}
 				}
@@ -73,17 +80,17 @@ func (tp *ThreadPool) getNextPrioritizedRequest() PendingRequest {
 
 	for {
 		priorities := []int{}
-		tp.requestQueueMutex.RLock()
-		for p := range tp.requestPriorityQueues {
+		tp.queuePriorityMutex.RLock()
+		for p := range tp.queuePriorityMap {
 			priorities = append(priorities, int(p))
 		}
-		tp.requestQueueMutex.RUnlock()
+		tp.queuePriorityMutex.RUnlock()
 		sort.Sort(sort.Reverse(sort.IntSlice(priorities)))
 
 		for _, p := range priorities {
-			tp.requestQueueMutex.RLock()
-			queue := tp.requestPriorityQueues[Priority(p)]
-			tp.requestQueueMutex.RUnlock()
+			tp.queuePriorityMutex.RLock()
+			queue := tp.queuePriorityMap[Priority(p)]
+			tp.queuePriorityMutex.RUnlock()
 			if len(queue) == 0 {
 				continue
 			}
@@ -96,11 +103,11 @@ func (tp *ThreadPool) getNextPrioritizedRequest() PendingRequest {
 func (tp *ThreadPool) getPendingCount() int {
 	sum := 0
 
-	tp.requestQueueMutex.RLock()
-	for p := range tp.requestPriorityQueues {
-		sum += len(tp.requestPriorityQueues[p])
+	tp.queuePriorityMutex.RLock()
+	for p := range tp.queuePriorityMap {
+		sum += len(tp.queuePriorityMap[p])
 	}
-	tp.requestQueueMutex.RUnlock()
+	tp.queuePriorityMutex.RUnlock()
 
 	return sum
 }

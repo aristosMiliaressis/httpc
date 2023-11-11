@@ -349,6 +349,8 @@ func (c *HttpClient) handleResponse(uow PendingRequest) {
 			if readErr == nil {
 				defer reader.Close()
 				body, dcprsErr = io.ReadAll(reader)
+			} else {
+				dcprsErr = readErr
 			}
 		case "br":
 			reader := brotli.NewReader(uow.Message.Response.Body)

@@ -385,6 +385,10 @@ func (c *HttpClient) handleResponse(uow PendingRequest) {
 
 	// handle redirects
 	if uow.Message.Response.StatusCode >= 300 && uow.Message.Response.StatusCode <= 399 {
+		if uow.Message.Response.Request == nil {
+			uow.Message.Response.Request = uow.Message.Request
+		}
+
 		absRedirect := util.GetRedirectLocation(uow.Message.Response)
 
 		uow.Message.CrossOriginRedirect = util.IsCrossOrigin(uow.Message.Request.URL.String(), absRedirect)

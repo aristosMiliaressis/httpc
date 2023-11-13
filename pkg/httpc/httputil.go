@@ -1,4 +1,4 @@
-package util
+package httpc
 
 import (
 	"net/http"

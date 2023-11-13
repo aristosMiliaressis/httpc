@@ -3,8 +3,6 @@ package httpc
 import (
 	"net/http"
 	"time"
-
-	"github.com/aristosMiliaressis/httpc/internal/util"
 )
 
 type MessageDuplex struct {
@@ -50,7 +48,7 @@ func (e MessageDuplex) IsRedirectLoop() bool {
 		return false
 	}
 
-	new := util.ToAbsolute(original, e.Response.Header["Location"][0])
+	new := ToAbsolute(original, e.Response.Header["Location"][0])
 
 	return original == new || originalWithCacheBuster == new
 }

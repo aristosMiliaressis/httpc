@@ -389,10 +389,10 @@ func (c *HttpClient) handleResponse(uow PendingRequest) {
 			uow.Message.Response.Request = uow.Message.Request
 		}
 
-		absRedirect := util.GetRedirectLocation(uow.Message.Response)
+		absRedirect := GetRedirectLocation(uow.Message.Response)
 
-		uow.Message.CrossOriginRedirect = util.IsCrossOrigin(uow.Message.Request.URL.String(), absRedirect)
-		uow.Message.CrossSiteRedirect = util.IsCrossSite(uow.Message.Request.URL.String(), absRedirect)
+		uow.Message.CrossOriginRedirect = IsCrossOrigin(uow.Message.Request.URL.String(), absRedirect)
+		uow.Message.CrossSiteRedirect = IsCrossSite(uow.Message.Request.URL.String(), absRedirect)
 
 		if uow.Options.Redirection.PreventCrossOriginRedirects && uow.Message.CrossOriginRedirect {
 			return

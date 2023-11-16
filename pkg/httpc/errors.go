@@ -3,11 +3,13 @@ package httpc
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/aristosMiliaressis/httpc/internal/util"
 	"github.com/projectdiscovery/gologger"
 )
 
@@ -34,7 +36,7 @@ var safeErrorsList = []int{401, 402, 404, 405, 406, 407, 410, 411, 412, 413, 414
 
 //var possiblyProblematicErrorCodes = []int{400, 403, 409, 402, 418, 420, 450, 451, 503, 504, 525, 530}
 
-func (c *HttpClient) handleTransportError(msg *MessageDuplex, err error) *MessageDuplex {
+func (c *HttpClient) handleTransportError(msg *MessageDuplex, err error) {
 
 	c.errorMutex.Lock()
 	c.totalErrors += 1
@@ -57,39 +59,85 @@ func (c *HttpClient) handleTransportError(msg *MessageDuplex, err error) *Messag
 
 	if c.Options.ErrorHandling.ConsecutiveThreshold != 0 &&
 		c.consecutiveErrors > c.Options.ErrorHandling.ConsecutiveThreshold {
-		gologger.Fatal().Msgf("Exceeded %d consecutive errors threshold, exiting.", c.Options.ErrorHandling.ConsecutiveThreshold)
-		c.verifyIpBan(msg)
+		exit := true
+		if c.Options.ErrorHandling.VerifyIPBanIfExheeded {
+			exit = c.verifyIpBan(msg)
+		}
+		if exit {
+			if c.Options.ErrorHandling.IpRotateIfExheeded {
+				c.enableIpRotate(msg.Request.URL)
+				return
+			}
+			if c.Options.ErrorHandling.ReportErrorsIfExheeded {
+				c.printErrorReport()
+			}
+			gologger.Fatal().Msgf("Exceeded %d consecutive errors threshold, exiting.", c.Options.ErrorHandling.ConsecutiveThreshold)
+		}
 	}
 	c.errorMutex.Unlock()
 
-	if c.Options.ErrorHandling.PercentageThreshold != 0 &&
-		c.totalSuccessful+c.totalErrors > 40 &&
+	if c.Options.ErrorHandling.PercentageThreshold != 0 && c.totalSuccessful+c.totalErrors > 40 &&
 		(c.totalSuccessful == 0 || int(100.0/(float64((c.totalSuccessful+c.totalErrors))/float64(c.totalErrors))) > c.Options.ErrorHandling.PercentageThreshold) {
-		gologger.Fatal().Msgf("%d errors out of %d requests exceeded %d%% error threshold, exiting.", c.totalErrors, c.totalSuccessful+c.totalErrors, c.Options.ErrorHandling.PercentageThreshold)
-		c.verifyIpBan(msg)
+		exit := true
+		if c.Options.ErrorHandling.VerifyIPBanIfExheeded {
+			exit = c.verifyIpBan(msg)
+		}
+		if exit {
+			if c.Options.ErrorHandling.IpRotateIfExheeded {
+				c.enableIpRotate(msg.Request.URL)
+				return
+			}
+			if c.Options.ErrorHandling.ReportErrorsIfExheeded {
+				c.printErrorReport()
+			}
+			gologger.Fatal().Msgf("%d errors out of %d requests exceeded %d%% error threshold, exiting.", c.totalErrors, c.totalSuccessful+c.totalErrors, c.Options.ErrorHandling.PercentageThreshold)
+		}
 	}
 
 	gologger.Debug().Msgf("%s %s\n", msg.Request.URL.String(), msg.TransportError)
-
-	return msg
 }
 
 func (c *HttpClient) handleHttpError(msg *MessageDuplex) {
+	exit := true
+
 	if c.Options.ErrorHandling.ConsecutiveThreshold != 0 &&
 		c.consecutiveErrors > c.Options.ErrorHandling.ConsecutiveThreshold {
-		gologger.Fatal().Msgf("Exceeded %d consecutive errors threshold, exiting.", c.Options.ErrorHandling.ConsecutiveThreshold)
-		c.verifyIpBan(msg)
+
+		if c.Options.ErrorHandling.VerifyIPBanIfExheeded {
+			exit = c.verifyIpBan(msg)
+		}
+		if exit {
+			if c.Options.ErrorHandling.IpRotateIfExheeded {
+				c.enableIpRotate(msg.Request.URL)
+				return
+			}
+			if c.Options.ErrorHandling.ReportErrorsIfExheeded {
+				c.printErrorReport()
+			}
+			gologger.Fatal().Msgf("Exceeded %d consecutive errors threshold, exiting.", c.Options.ErrorHandling.ConsecutiveThreshold)
+		}
 	}
 
-	if c.Options.ErrorHandling.PercentageThreshold != 0 &&
-		c.totalSuccessful+c.totalErrors > 40 &&
+	if c.Options.ErrorHandling.PercentageThreshold != 0 && c.totalSuccessful+c.totalErrors > 40 &&
 		(c.totalSuccessful == 0 || int(100.0/(float64((c.totalSuccessful+c.totalErrors))/float64(c.totalErrors))) > c.Options.ErrorHandling.PercentageThreshold) {
-		gologger.Fatal().Msgf("%d errors out of %d requests exceeded %d%% error threshold, exiting.", c.totalErrors, c.totalSuccessful+c.totalErrors, c.Options.ErrorHandling.PercentageThreshold)
-		c.verifyIpBan(msg)
+
+		if c.Options.ErrorHandling.VerifyIPBanIfExheeded {
+			exit = c.verifyIpBan(msg)
+		}
+		if exit {
+			if c.Options.ErrorHandling.IpRotateIfExheeded {
+				c.enableIpRotate(msg.Request.URL)
+				return
+			}
+			if c.Options.ErrorHandling.ReportErrorsIfExheeded {
+				c.printErrorReport()
+			}
+			gologger.Fatal().Msgf("%d errors out of %d requests exceeded %d%% error threshold, exiting.", c.totalErrors, c.totalSuccessful+c.totalErrors, c.Options.ErrorHandling.PercentageThreshold)
+		}
 	}
 }
 
-func (c *HttpClient) verifyIpBan(msg *MessageDuplex) {
+func (c *HttpClient) verifyIpBan(msg *MessageDuplex) bool {
 
 	messages := c.MessageLog.Search(func(e *MessageDuplex) bool {
 		if msg.Response == nil {
@@ -112,14 +160,41 @@ func (c *HttpClient) verifyIpBan(msg *MessageDuplex) {
 	<-newMsg.Resolved
 
 	if msg.TransportError != NoError && newMsg.TransportError != msg.TransportError {
-		return
+		return false
 	} else if msg.TransportError == NoError && newMsg.Response != nil && newMsg.Response.Status != msg.Response.Status {
-		return
+		return false
 	}
 
-	if c.Options.ErrorHandling.IpRotateIfExheeded {
-		c.enableIpRotate(msg.Request.URL)
-	} else {
-		gologger.Fatal().Msg("IP ban detected, exiting.")
+	gologger.Warning().Msg("IP ban detected, exiting.")
+
+	return true
+}
+
+func (c *HttpClient) printErrorReport() {
+	timeouts := c.MessageLog.Search(func(e *MessageDuplex) bool {
+		return e.TransportError == Timeout
+	})
+
+	connectionReset := c.MessageLog.Search(func(e *MessageDuplex) bool {
+		return e.TransportError == ConnectionReset
+	})
+
+	generalTransportError := c.MessageLog.Search(func(e *MessageDuplex) bool {
+		return e.TransportError == UnknownError
+	})
+
+	httpErrors := c.MessageLog.Search(func(e *MessageDuplex) bool {
+		return e.Response != nil && e.Response.StatusCode >= 400 && !util.Contains(safeErrorsList, e.Response.StatusCode)
+	})
+
+	groupedHttpErrors := map[int]int{}
+	for _, errorResponse := range httpErrors {
+		groupedHttpErrors[errorResponse.Response.StatusCode] += 1
 	}
+
+	fmt.Printf("Timeouts: %d, ConnectionReset: %d, GenericTransportError: %d\n", len(timeouts), len(connectionReset), len(generalTransportError))
+	for status, count := range groupedHttpErrors {
+		fmt.Printf("%d: %d,", status, count)
+	}
+	fmt.Println()
 }

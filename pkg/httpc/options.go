@@ -42,7 +42,9 @@ type PerformanceOptions struct {
 type ErrorHandlingOptions struct {
 	PercentageThreshold    int
 	ConsecutiveThreshold   int
+	VerifyIPBanIfExheeded  bool
 	IpRotateIfExheeded     bool
+	ReportErrorsIfExheeded bool
 	RetryTransportFailures bool
 }
 
@@ -84,7 +86,9 @@ var DefaultOptions = ClientOptions{
 		Delay:              Range{Min: 0, Max: 0},
 	},
 	ErrorHandling: ErrorHandlingOptions{
-		PercentageThreshold:  0,
-		ConsecutiveThreshold: 0,
+		PercentageThreshold:    0,
+		ConsecutiveThreshold:   0,
+		VerifyIPBanIfExheeded:  true,
+		ReportErrorsIfExheeded: true,
 	},
 }

@@ -194,7 +194,7 @@ func (c *HttpClient) printErrorReport() {
 
 	fmt.Printf("Timeouts: %d, ConnectionReset: %d, GenericTransportError: %d\n", len(timeouts), len(connectionReset), len(generalTransportError))
 	for status, count := range groupedHttpErrors {
-		fmt.Printf("%d: %d,", status, count)
+		fmt.Printf("%d: %d, ", status, count)
 	}
-	fmt.Println()
+	fmt.Printf("failed: %d, successful: %d\n", c.totalErrors, c.totalSuccessful)
 }

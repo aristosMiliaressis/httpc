@@ -57,9 +57,14 @@ func (r *RateThrottle) CurrentRate() int64 {
 
 func (r *RateThrottle) ChangeRate(rate int) {
 	r.RPS = rate
+	r.RateLimiter.Stop()
+
+	if rate == 0 {
+		return
+	}
+
 	ratemicros := 1000000/r.RPS - 50000/r.RPS
 
-	r.RateLimiter.Stop()
 	r.RateLimiter = time.NewTicker(time.Microsecond * time.Duration(ratemicros))
 	r.rateCounter = ring.New(rate * 5)
 }

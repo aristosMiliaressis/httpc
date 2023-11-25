@@ -67,7 +67,7 @@ func (opts CacheBustingOptions) Apply(req *http.Request) {
 
 	if opts.AcceptEncoding {
 		if enc, ok := req.Header["Accept-Encoding"]; !ok && enc == nil {
-			req.Header.Add("Accept-Encoding", "*, "+opts.getCacheBuster())
+			req.Header.Add("Accept-Encoding", "gzip, deflate, br, "+opts.getCacheBuster())
 		} else {
 			req.Header["Accept-Encoding"][0] = req.Header["Accept-Encoding"][0] + ", " + opts.getCacheBuster()
 		}

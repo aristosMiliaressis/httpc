@@ -6,9 +6,12 @@ func (c *HttpClient) GetCookieJar() map[string]string {
 	c.cookieJarMutex.RLock()
 	defer c.cookieJarMutex.RUnlock()
 
-	jarCopy := c.cookieJar
+	cookieJarCopy := make(map[string]string)
+	for k, v := range c.cookieJar {
+		cookieJarCopy[k] = v
+	}
 
-	return jarCopy
+	return cookieJarCopy
 }
 
 func (c *HttpClient) AddCookie(name string, value string) {

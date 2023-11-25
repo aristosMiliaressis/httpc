@@ -46,6 +46,7 @@ type ErrorHandlingOptions struct {
 	IpRotateIfExheeded     bool
 	ReportErrorsIfExheeded bool
 	RetryTransportFailures bool
+	AwsProfile             string
 }
 
 type CacheBustingOptions struct {
@@ -86,9 +87,10 @@ var DefaultOptions = ClientOptions{
 		Delay:              Range{Min: 0, Max: 0},
 	},
 	ErrorHandling: ErrorHandlingOptions{
-		PercentageThreshold:    0,
+		PercentageThreshold:    90,
 		ConsecutiveThreshold:   0,
 		VerifyIPBanIfExheeded:  true,
 		ReportErrorsIfExheeded: true,
+		AwsProfile:             "default",
 	},
 }

@@ -18,7 +18,7 @@ func (c *HttpClient) enableIpRotate(url *url.URL) {
 		return
 	}
 
-	c.apiGateways[baseUrl.String()], err = iprotate.CreateApi("default", baseUrl)
+	c.apiGateways[baseUrl.String()], err = iprotate.CreateApi(c.Options.ErrorHandling.AwsProfile, baseUrl)
 	if err != nil {
 		gologger.Fatal().Msgf("Error while creating api gateway for ip rotation")
 	}

@@ -32,7 +32,7 @@ func (e TransportError) MarshalJSON() ([]byte, error) {
 	return json.Marshal(e.String())
 }
 
-var safeErrorsList = []int{401, 402, 404, 405, 406, 407, 410, 411, 412, 413, 414, 415, 416, 417, 426, 431, 429, 500, 501}
+var safeErrorsList = []int{401, 402, 404, 405, 406, 407, 410, 411, 412, 413, 414, 415, 416, 417, 426, 431, 500, 501}
 
 //var possiblyProblematicErrorCodes = []int{400, 403, 409, 402, 418, 420, 450, 451, 503, 504, 525, 530}
 

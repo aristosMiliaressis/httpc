@@ -96,7 +96,7 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts ClientOptions) *Mes
 	if len(c.apiGateways) > 0 {
 		c.apiGatewayMutex.Lock()
 		for gateway := range c.apiGateways {
-			if strings.Contains(req.URL.String(), gateway) {
+			if GetBaseUrl(req.URL).String() == gateway {
 				replacedUrl := strings.Replace(req.URL.String(), gateway, c.apiGateways[gateway].ProxyUrl, 1)
 				gatewayUrl, err := url.Parse(replacedUrl)
 				if err != nil {
@@ -377,7 +377,6 @@ func (c *HttpClient) handleResponse(uow PendingRequest) {
 		c.totalErrors += 1
 		c.consecutiveErrors += 1
 		c.handleHttpError(uow.Message)
-		return
 	} else {
 		c.totalSuccessful += 1
 		c.consecutiveErrors = 0
@@ -413,7 +412,6 @@ func (c *HttpClient) handleResponse(uow PendingRequest) {
 		}
 
 		redirectedReq := uow.Message.Request.Clone(c.context)
-		redirectedReq.Header.Del("Cookie") // TODO: figure out why did i do this??
 		uow.Options.CacheBusting.Clear(redirectedReq)
 
 		absRedirectUrl, _ := url.Parse(absRedirect)

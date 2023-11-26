@@ -139,6 +139,8 @@ func (c *HttpClient) handleHttpError(msg *MessageDuplex) {
 
 func (c *HttpClient) verifyIpBan(msg *MessageDuplex) bool {
 
+	gologger.Warning().Msg("Potential IP ban detected, verifying..")
+
 	messages := c.MessageLog.Search(func(e *MessageDuplex) bool {
 		if msg.Response == nil {
 			return e.TransportError != msg.TransportError && e.Request != nil
@@ -160,8 +162,10 @@ func (c *HttpClient) verifyIpBan(msg *MessageDuplex) bool {
 	<-newMsg.Resolved
 
 	if msg.TransportError != NoError && newMsg.TransportError != msg.TransportError {
+		gologger.Warning().Msg("No IP ban, continuing..")
 		return false
 	} else if msg.TransportError == NoError && newMsg.Response != nil && newMsg.Response.Status != msg.Response.Status {
+		gologger.Warning().Msg("No IP ban, continuing..")
 		return false
 	}
 

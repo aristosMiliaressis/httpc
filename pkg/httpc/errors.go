@@ -155,27 +155,17 @@ func (c *HttpClient) verifyIpBan(msg *MessageDuplex) bool {
 		return true
 	}
 
-	fmt.Println("BEFORE")
 	c.ThreadPool.Rate.Stop()
-	fmt.Println("After")
-
 	<-time.After(time.Second * 5)
-	fmt.Printf("After2 %d\n", len(messages))
 
 	req := messages[0].Request.Clone(c.context)
 
 	opts := c.Options
 	opts.RequestPriority = 1000
-	fmt.Println("After3")
-
 	newMsg := c.Send(req)
-	fmt.Println("After4")
 
 	c.ThreadPool.Rate.ChangeRate(1)
-	fmt.Println("After5")
-
 	<-newMsg.Resolved
-	fmt.Println("After6")
 
 	if msg.TransportError != NoError && newMsg.TransportError != msg.TransportError {
 		gologger.Warning().Msg("No IP ban, continuing..")

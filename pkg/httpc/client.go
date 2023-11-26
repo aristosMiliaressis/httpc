@@ -153,25 +153,18 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts ClientOptions) *Mes
 
 	msg.Request = msg.Request.WithContext(httptrace.WithClientTrace(c.context, trace))
 
-	fmt.Println("HERE")
 	c.ThreadPool.queuePriorityMutex.RLock()
 	queue, ok := c.ThreadPool.queuePriorityMap[opts.RequestPriority]
-	fmt.Println("THERE")
 	c.ThreadPool.queuePriorityMutex.RUnlock()
-	fmt.Println("THERE2")
 
 	if !ok {
 		queue = c.ThreadPool.NewRequestQueue()
 		c.ThreadPool.queuePriorityMutex.Lock()
-		fmt.Println("THERE3")
-
 		c.ThreadPool.queuePriorityMap[opts.RequestPriority] = queue
 		c.ThreadPool.queuePriorityMutex.Unlock()
 	}
-	fmt.Println("THERE4")
 
 	queue <- PendingRequest{"", msg, opts}
-	fmt.Println("THERE5")
 
 	return msg
 }

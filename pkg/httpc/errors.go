@@ -147,7 +147,7 @@ func (c *HttpClient) verifyIpBan(msg *MessageDuplex) bool {
 		}
 	})
 
-	c.ThreadPool.Rate.ChangeRate(0)
+	c.ThreadPool.Rate.Stop()
 	<-time.After(time.Second * 5)
 
 	req := messages[0].Request.Clone(c.context)

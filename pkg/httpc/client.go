@@ -429,7 +429,7 @@ func (c *HttpClient) handleResponse(uow PendingRequest) {
 
 	// handle rate-limitting
 	if uow.Message.Response.StatusCode == 429 || uow.Message.Response.StatusCode == 529 {
-		if uow.Options.Performance.AutoRateThrottle && c.ThreadPool.Rate.RPS > 1 {
+		if uow.Options.Performance.AutoRateThrottle {
 			c.ThreadPool.Rate.ChangeRate(c.ThreadPool.Rate.RPS - 1)
 		}
 

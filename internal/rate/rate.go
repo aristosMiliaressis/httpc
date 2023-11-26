@@ -56,17 +56,23 @@ func (r *RateThrottle) CurrentRate() int64 {
 }
 
 func (r *RateThrottle) ChangeRate(rate int) {
-	r.RPS = rate
-	r.RateLimiter.Stop()
-
 	if rate == 0 {
 		return
 	}
+
+	r.RPS = rate
+	r.RateLimiter.Stop()
 
 	ratemicros := 1000000/r.RPS - 50000/r.RPS
 
 	r.RateLimiter = time.NewTicker(time.Microsecond * time.Duration(ratemicros))
 	r.rateCounter = ring.New(rate * 5)
+}
+
+func (r *RateThrottle) Stop() {
+	r.RPS = 0
+	r.RateLimiter.Stop()
+	r.rateCounter = ring.New(0)
 }
 
 // rateTick adds a new duration measurement Tick to rate counter

@@ -149,12 +149,18 @@ func (c *HttpClient) verifyIpBan(msg *MessageDuplex) bool {
 		}
 	})
 
+	if len(messages) == 0 {
+		gologger.Warning().Msg("IP ban detected, exiting.")
+
+		return true
+	}
+
 	fmt.Println("BEFORE")
 	c.ThreadPool.Rate.Stop()
 	fmt.Println("After")
 
 	<-time.After(time.Second * 5)
-	fmt.Println("After2")
+	fmt.Printf("After2 %d\n", len(messages))
 
 	req := messages[0].Request.Clone(c.context)
 

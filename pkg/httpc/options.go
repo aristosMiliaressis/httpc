@@ -74,6 +74,9 @@ var DefaultOptions = ClientOptions{
 	MaintainCookieJar:       true,
 	RequestPriority:         1,
 	DefaultHeaders:          map[string]string{},
+	Connection: ConnectionOptions{
+		DisableKeepAlives: true,
+	},
 	Redirection: RedirectionOptions{
 		FollowRedirects:           true,
 		PreventCrossSiteRedirects: true,

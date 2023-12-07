@@ -365,6 +365,7 @@ func (c *HttpClient) handleResponse(uow PendingRequest) {
 		}
 
 		uow.Message.Response.Body = io.NopCloser(bytes.NewBuffer(body))
+		uow.Message.Response.ContentLength = int64(len(body))
 	}
 
 	if dcprsErr != nil {

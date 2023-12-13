@@ -374,7 +374,7 @@ func (c *HttpClient) handleResponse(uow PendingRequest) {
 	}
 
 	// handle http errors
-	if uow.Message.TransportError != NoError || (uow.Message.Response.StatusCode >= 400 && !util.Contains(safeErrorsList, uow.Message.Response.StatusCode)) {
+	if uow.Message.TransportError != NoError || (uow.Message.Response.StatusCode >= 400 && !util.Contains(c.Options.ErrorHandling.ErrorCodes, uow.Message.Response.StatusCode)) {
 		c.totalErrors += 1
 		c.consecutiveErrors += 1
 		c.handleHttpError(uow.Message)

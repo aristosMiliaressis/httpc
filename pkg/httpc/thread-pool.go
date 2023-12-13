@@ -47,14 +47,14 @@ func (tp *ThreadPool) Run() {
 
 	var threadCount atomic.Int64
 	var threadLimiter bool
+	delay := time.Millisecond * 1
 
 	for i := 1; true; i++ {
 
-		<-time.After(time.Millisecond * 500)
 		threadLimiter = true
 
-		gologger.Debug().Msgf("threads: %d, desiredRate: %d currentRate: %d\n",
-			int(threadCount.Load()), tp.Rate.RPS, tp.Rate.CurrentRate())
+		gologger.Debug().Msgf("threads: %d, desiredRate: %d, currentRate: %d, delay: %dms\n",
+			int(threadCount.Load()), tp.Rate.RPS, tp.Rate.CurrentRate(), delay.Milliseconds())
 
 		if tp.Rate.CurrentRate() < int64(tp.Rate.RPS) && tp.getPendingCount() > 0 {
 
@@ -67,14 +67,24 @@ func (tp *ThreadPool) Run() {
 					tp.processCallback(uow)
 					tp.Rate.Tick(time.Now())
 
-					if threadLimiter && (tp.Rate.CurrentRate() > int64(tp.Rate.RPS) || tp.getPendingCount() == 0) && int(threadCount.Load()) > 1 {
-						threadCount.Add(-1)
+					if threadLimiter && (tp.Rate.CurrentRate() > int64(tp.Rate.RPS) || tp.getPendingCount() == 0) {
+
 						threadLimiter = false
-						return
+
+						if int(threadCount.Load()) > 1 {
+							threadCount.Add(-1)
+							return
+						} else {
+							delay += time.Millisecond * 100
+						}
 					}
+
+					<-time.After(delay)
 				}
 			}(i)
 		}
+
+		<-time.After(time.Millisecond * 1000)
 	}
 }
 

@@ -46,16 +46,18 @@ func NewThreadPool(callback func(uow PendingRequest), context context.Context, r
 func (tp *ThreadPool) Run() {
 
 	var threadCount atomic.Int64
+	var threadLimiter bool
 
 	for i := 1; true; i++ {
 
 		<-time.After(time.Millisecond * 500)
+		threadLimiter = true
+
 		gologger.Debug().Msgf("threads: %d, desiredRate: %d currentRate: %d\n",
 			int(threadCount.Load()), tp.Rate.RPS, tp.Rate.CurrentRate())
 
 		if tp.Rate.CurrentRate() < int64(tp.Rate.RPS) && tp.getPendingCount() > 0 {
 
-			<-tp.Rate.RateLimiter.C
 			threadCount.Add(1)
 
 			go func(workerID int) {
@@ -65,8 +67,9 @@ func (tp *ThreadPool) Run() {
 					tp.processCallback(uow)
 					tp.Rate.Tick(time.Now())
 
-					if (tp.Rate.CurrentRate() > int64(tp.Rate.RPS) || tp.getPendingCount() == 0) && int(threadCount.Load()) > 1 {
+					if threadLimiter && (tp.Rate.CurrentRate() > int64(tp.Rate.RPS) || tp.getPendingCount() == 0) && int(threadCount.Load()) > 1 {
 						threadCount.Add(-1)
+						threadLimiter = false
 						return
 					}
 				}

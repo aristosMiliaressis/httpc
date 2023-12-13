@@ -9,7 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aristosMiliaressis/httpc/internal/util"
 	"github.com/projectdiscovery/gologger"
 )
 
@@ -31,8 +30,6 @@ func (e TransportError) String() string {
 func (e TransportError) MarshalJSON() ([]byte, error) {
 	return json.Marshal(e.String())
 }
-
-//var possiblyProblematicErrorCodes = []int{400, 403, 409, 402, 418, 420, 450, 451, 503, 504, 525, 530}
 
 func (c *HttpClient) handleTransportError(msg *MessageDuplex, err error) {
 
@@ -192,7 +189,7 @@ func (c *HttpClient) printErrorReport() {
 	})
 
 	httpErrors := c.MessageLog.Search(func(e *MessageDuplex) bool {
-		return e.Response != nil && e.Response.StatusCode >= 400 && !util.Contains(c.Options.ErrorHandling.ErrorCodes, e.Response.StatusCode)
+		return e.Response != nil && e.Response.StatusCode >= 400 && c.Options.ErrorHandling.Matches(e.Response.StatusCode)
 	})
 
 	groupedHttpErrors := map[int]int{}

@@ -1,5 +1,7 @@
 package httpc
 
+import "github.com/aristosMiliaressis/httpc/internal/util"
+
 type ClientOptions struct {
 	SimulateBrowserRequests bool
 	RandomizeUserAgent      bool
@@ -40,14 +42,15 @@ type PerformanceOptions struct {
 }
 
 type ErrorHandlingOptions struct {
-	PercentageThreshold    int
-	ConsecutiveThreshold   int
-	VerifyIPBanIfExheeded  bool
-	IpRotateIfExheeded     bool
-	ReportErrorsIfExheeded bool
-	RetryTransportFailures bool
-	ErrorCodes             []int
-	AwsProfile             string
+	PercentageThreshold      int
+	ConsecutiveThreshold     int
+	VerifyIPBanIfExheeded    bool
+	IpRotateIfExheeded       bool
+	ReportErrorsIfExheeded   bool
+	RetryTransportFailures   bool
+	HandleErrorCodes         []int
+	ReverseErrorCodeHandling bool
+	AwsProfile               string
 }
 
 type CacheBustingOptions struct {
@@ -95,7 +98,14 @@ var DefaultOptions = ClientOptions{
 		ConsecutiveThreshold:   0,
 		VerifyIPBanIfExheeded:  true,
 		ReportErrorsIfExheeded: true,
-		ErrorCodes:             []int{401, 402, 404, 405, 406, 407, 410, 411, 412, 413, 414, 415, 416, 417, 426, 431, 500, 501},
-		AwsProfile:             "default",
+		HandleErrorCodes:       []int{401, 402, 404, 405, 406, 407, 410, 411, 412, 413, 414, 415, 416, 417, 426, 431, 500, 501},
 	},
+}
+
+func (opts ErrorHandlingOptions) Matches(statusCode int) bool {
+	if util.Contains(opts.HandleErrorCodes, statusCode) {
+		return opts.ReverseErrorCodeHandling
+	}
+
+	return !opts.ReverseErrorCodeHandling
 }

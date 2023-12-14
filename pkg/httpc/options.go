@@ -22,6 +22,7 @@ type ConnectionOptions struct {
 	ForceAttemptHTTP1 bool
 	ForceAttemptHTTP2 bool
 	DisableKeepAlives bool
+	EnableIPRotate    bool
 	SNI               string
 }
 

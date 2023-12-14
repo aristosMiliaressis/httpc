@@ -90,6 +90,10 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts ClientOptions) *Mes
 		Resolved: make(chan bool, 1),
 	}
 
+	if c.Options.Connection.EnableIPRotate {
+		c.enableIpRotate(msg.Request.URL)
+	}
+
 	if len(c.apiGateways) > 0 {
 		c.apiGatewayMutex.Lock()
 		for gateway := range c.apiGateways {

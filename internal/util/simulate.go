@@ -41,10 +41,10 @@ func SimulateBrowserRequest(req *http.Request) {
 
 	segments := strings.Split(req.URL.Path, ".")
 	if len(segments) > 0 && Contains(extensions, segments[len(segments)-1]) {
-		addHeaderIfNotPresent(req, "Sec-Ch-Ua", "\"Chromium\";v=\"117\", \"Not;A=Brand\";v=\"8\"")
-		addHeaderIfNotPresent(req, "Sec-Ch-Ua-Mobile", "?0")
-		addHeaderIfNotPresent(req, "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.5938.132 Safari/537.36")
-		addHeaderIfNotPresent(req, "Sec-Ch-Ua-Platform", "\"Windows\"")
+		addHeaderIfNotPresent(req, "sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"99\", \"Google Chrome\";v=\"99\"")
+		addHeaderIfNotPresent(req, "sec-ch-ua-mobile", "?0")
+		addHeaderIfNotPresent(req, "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36")
+		addHeaderIfNotPresent(req, "sec-ch-ua-platform", "\"Windows\"")
 		addHeaderIfNotPresent(req, "Accept", "*/*;q=0.9")
 		addHeaderIfNotPresent(req, "Sec-Fetch-Site", "same-origin")
 		addHeaderIfNotPresent(req, "Sec-Fetch-Mode", "no-cors")
@@ -55,11 +55,11 @@ func SimulateBrowserRequest(req *http.Request) {
 		return
 	}
 
-	addHeaderIfNotPresent(req, "Sec-Ch-Ua", "\"Chromium\";v=\"117\", \"Not;A=Brand\";v=\"8\"")
-	addHeaderIfNotPresent(req, "Sec-Ch-Ua-Mobile", "?0")
-	addHeaderIfNotPresent(req, "Sec-Ch-Ua-Platform", "\"Windows\"")
+	addHeaderIfNotPresent(req, "sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"99\", \"Google Chrome\";v=\"99\"")
+	addHeaderIfNotPresent(req, "sec-ch-ua-mobile", "?0")
+	addHeaderIfNotPresent(req, "sec-ch-ua-platform", "\"Windows\"")
 	addHeaderIfNotPresent(req, "Upgrade-Insecure-Requests", "1")
-	addHeaderIfNotPresent(req, "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.5938.132 Safari/537.36")
+	addHeaderIfNotPresent(req, "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36")
 	addHeaderIfNotPresent(req, "Accept", "*/*;q=0.9")
 	addHeaderIfNotPresent(req, "Sec-Fetch-Site", "none")
 	addHeaderIfNotPresent(req, "Sec-Fetch-Mode", "navigate")

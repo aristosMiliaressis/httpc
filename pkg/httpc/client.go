@@ -281,6 +281,8 @@ func createInternalHttpClient(opts ClientOptions) http.Client {
 func (c *HttpClient) handleMessage(uow PendingRequest) {
 	defer func() { uow.Message.Resolved <- true }()
 
+	gologger.Debug().Msgf("Sending %s\n", uow.Message.Request.URL.String())
+
 	var sendErr error
 	if uow.RawRequest == "" {
 		if uow.Options.Connection.SNI != "" {

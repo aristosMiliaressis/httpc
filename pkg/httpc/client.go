@@ -311,6 +311,7 @@ func (c *HttpClient) handleMessage(uow PendingRequest) {
 	}
 
 	if uow.Message.Response == nil && uow.Options.ErrorHandling.RetryTransportFailures {
+		uow.Message.Resolved <- true
 		if uow.RawRequest == "" {
 			retriedMsg := c.SendWithOptions(uow.Message.Request, uow.Options)
 			*uow.Message = *retriedMsg

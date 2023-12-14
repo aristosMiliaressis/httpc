@@ -18,6 +18,7 @@ func main() {
 	gologger.DefaultLogger.SetMaxLevel(levels.LevelVerbose)
 
 	opts := httpc.DefaultOptions
+	opts.ErrorHandling.ReverseErrorCodeHandling = true
 
 	client := httpc.NewHttpClient(opts, context.Background())
 	defer client.Close()
@@ -38,13 +39,13 @@ func main() {
 	fmt.Println(string(respData))
 
 	newOpts = client.Options
-	client.ThreadPool.Rate.ChangeRate(50)
+	client.ThreadPool.Rate.ChangeRate(30)
 
 	go http.ListenAndServe("localhost:6060", nil)
 	pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 
 	for {
-		last = client.SendWithOptions(req.Clone(context.Background()), newOpts)
+		_ = client.SendWithOptions(req.Clone(context.Background()), newOpts)
 		req.Close = true
 	}
 }

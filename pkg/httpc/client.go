@@ -9,7 +9,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"math/rand"
 	"net"
 	"net/http"
 	"net/http/httptrace"
@@ -62,7 +61,7 @@ func NewHttpClient(opts ClientOptions, ctx context.Context) *HttpClient {
 		cookieJar: map[string]string{},
 	}
 
-	c.ThreadPool = NewThreadPool(c.handleResponse, ctx, opts.Performance.RequestsPerSecond, 1000)
+	c.ThreadPool = NewThreadPool(c.handleMessage, ctx, opts.Performance.RequestsPerSecond, opts.Performance.Delay, 10000)
 	go c.ThreadPool.Run()
 
 	return &c
@@ -85,8 +84,6 @@ func (c *HttpClient) Send(req *http.Request) *MessageDuplex {
 }
 
 func (c *HttpClient) SendWithOptions(req *http.Request, opts ClientOptions) *MessageDuplex {
-
-	c.sleepIfNeeded(opts.Performance.Delay)
 
 	msg := &MessageDuplex{
 		Request:  req.Clone(c.context),
@@ -174,8 +171,6 @@ func (c *HttpClient) SendRaw(rawreq string, baseUrl string) *MessageDuplex {
 }
 
 func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts ClientOptions) *MessageDuplex {
-
-	c.sleepIfNeeded(opts.Performance.Delay)
 
 	msg := &MessageDuplex{
 		Resolved: make(chan bool, 1),
@@ -279,18 +274,7 @@ func createInternalHttpClient(opts ClientOptions) http.Client {
 	}
 }
 
-func (c *HttpClient) sleepIfNeeded(delay Range) {
-
-	sTime := delay.Min + rand.Float64()*(delay.Max-delay.Min)
-	sleepDuration, _ := time.ParseDuration(fmt.Sprintf("%dms", int(sTime*1000)))
-
-	select {
-	case <-c.context.Done():
-	case <-time.After(sleepDuration):
-	}
-}
-
-func (c *HttpClient) handleResponse(uow PendingRequest) {
+func (c *HttpClient) handleMessage(uow PendingRequest) {
 	defer func() { uow.Message.Resolved <- true }()
 
 	var sendErr error

@@ -91,7 +91,7 @@ var DefaultOptions = ClientOptions{
 		RequestsPerSecond:  10,
 		AutoRateThrottle:   true,
 		ReplayRateLimitted: true,
-		Delay:              Range{Min: 0, Max: 0},
+		Delay:              Range{Min: 0, Max: 0.1},
 	},
 	ErrorHandling: ErrorHandlingOptions{
 		PercentageThreshold:    90,

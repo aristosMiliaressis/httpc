@@ -25,25 +25,30 @@ HTTP Client Library for security tooling.
 - [x] configurable cache busting with support for query & headers  
 <br>
 
+- [x] fine grained error handling
+<br>
+
 - [x] jitter option
 - [x] option to replay ratelimitted requests
 - [x] auto rate throttling based on 429 responses
-- [ ] auto rate throttling based on ratelimit headers   <---
-- [ ] adjust request rate according to response rate   <---
+- [ ] auto rate throttling based on ratelimit headers 
+- [ ] adjust request rate according to response rate 
+
+<br>
+
+- [x] apigateway based ip rotation (requires aws creds)
+
 <br>
 
 - [x] browser request simulation
 - [ ] jarm/ja3 emulation
-  - https://github.com/Danny-Dasilva/CycleTLS
+- https://github.com/Danny-Dasilva/CycleTLS
 - [ ] bot detection bypass?? headlessBrowser + selenium??
-  - https://gist.github.com/ultrafunkamsterdam/f6d8b02ae29d69dbb2970cda11fe634f
-  - https://github.com/ultrafunkamsterdam/undetected-chromedriver
-  - https://github.com/omkarcloud/botasaurus
-  - https://blog.cloudflare.com/introducing-im-under-attack-mode/
-<br>
+- https://gist.github.com/ultrafunkamsterdam/f6d8b02ae29d69dbb2970cda11fe634f
+- https://github.com/ultrafunkamsterdam/undetected-chromedriver
+- https://github.com/omkarcloud/botasaurus
+- https://blog.cloudflare.com/introducing-im-under-attack-mode/
 
-- [ ] configurable ratelimit, ip ban & server outage detection & response   <---
-- [x] apigateway based ip rotation (requires aws creds)
 <br>
 
 - [x] option to ignore ALPN and attempt HTTP/1 or HTTP/2

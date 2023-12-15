@@ -51,6 +51,7 @@ func (c *HttpClient) handleTransportError(msg *MessageDuplex, err error) {
 		msg.TransportError = UnknownError
 		c.errorLog[UnknownError.String()] += 1
 	}
+	c.errorMutex.Unlock()
 
 	if c.Options.ErrorHandling.ConsecutiveThreshold != 0 &&
 		c.consecutiveErrors > c.Options.ErrorHandling.ConsecutiveThreshold {
@@ -69,7 +70,6 @@ func (c *HttpClient) handleTransportError(msg *MessageDuplex, err error) {
 			gologger.Fatal().Msgf("Exceeded %d consecutive errors threshold, exiting.", c.Options.ErrorHandling.ConsecutiveThreshold)
 		}
 	}
-	c.errorMutex.Unlock()
 
 	if c.Options.ErrorHandling.PercentageThreshold != 0 && c.totalSuccessful+c.totalErrors > 40 &&
 		(c.totalSuccessful == 0 || int(100.0/(float64((c.totalSuccessful+c.totalErrors))/float64(c.totalErrors))) > c.Options.ErrorHandling.PercentageThreshold) {
@@ -203,3 +203,44 @@ func (c *HttpClient) printErrorReport() {
 	}
 	fmt.Printf("failed: %d, successful: %d\n", c.totalErrors, c.totalSuccessful)
 }
+
+// func isRSTError(err error) bool {
+// 	// case *http2.RSTStreamFrame:
+// 	// 	err = ConnDropError{Wrapped: fmt.Errorf("error code %v", f.ErrCode)}
+
+// 	// if ga, ok := f.(*http2.GoAwayFrame); ok {
+// 	// 	err = ConnDropError{
+// 	// 		Wrapped: fmt.Errorf("received GOAWAY: error code %v", ga.ErrCode),
+// 	// 	}
+// 	// 	return
+// 	// }
+
+// 	_, ok := err.(ConnDropError)
+// 	return ok
+// }
+
+// type ConnDropError struct {
+// 	Wrapped error
+// }
+
+// func (r ConnDropError) Error() string {
+// 	return fmt.Sprintf("server dropped connection, error=%v", r.Wrapped)
+// }
+
+//	func isTimeoutError(err error) bool {
+//		n, ok := err.(net.Error)
+//		if !ok {
+//			return false
+//		}
+//		return n.Timeout()
+//	}
+// type TransportErrorPseudoCode int
+
+// const (
+// 	NoError TransportErrorPseudoCode = iota + 600
+// 	Timeout
+// 	ConnectionReset
+// 	TlsNegotiationFailure
+// 	DnsError
+// 	UnknownError
+// )

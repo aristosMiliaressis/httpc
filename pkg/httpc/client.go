@@ -279,7 +279,7 @@ func createInternalHttpClient(opts ClientOptions) http.Client {
 }
 
 func (c *HttpClient) handleMessage(uow PendingRequest) {
-	defer func() { uow.Message.Resolved <- true }()
+	defer func() { uow.Message.Resolved <- true; close(uow.Message.Resolved) }()
 
 	gologger.Debug().Msgf("Sending %s\n", uow.Message.Request.URL.String())
 

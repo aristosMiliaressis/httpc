@@ -154,16 +154,13 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts ClientOptions) *Mes
 
 	msg.Request = msg.Request.WithContext(httptrace.WithClientTrace(c.context, trace))
 
-	c.ThreadPool.queuePriorityMutex.RLock()
+	c.ThreadPool.queuePriorityMutex.Lock()
 	queue, ok := c.ThreadPool.queuePriorityMap[opts.RequestPriority]
-	c.ThreadPool.queuePriorityMutex.RUnlock()
-
 	if !ok {
 		queue = c.ThreadPool.NewRequestQueue()
-		c.ThreadPool.queuePriorityMutex.Lock()
 		c.ThreadPool.queuePriorityMap[opts.RequestPriority] = queue
-		c.ThreadPool.queuePriorityMutex.Unlock()
 	}
+	c.ThreadPool.queuePriorityMutex.Unlock()
 
 	queue <- PendingRequest{"", msg, opts}
 
@@ -181,16 +178,13 @@ func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts Clie
 	}
 	msg.Request, _ = http.NewRequest("GET", baseUrl, nil)
 
-	c.ThreadPool.queuePriorityMutex.RLock()
+	c.ThreadPool.queuePriorityMutex.Lock()
 	queue, ok := c.ThreadPool.queuePriorityMap[opts.RequestPriority]
-	c.ThreadPool.queuePriorityMutex.RUnlock()
-
 	if !ok {
 		queue = c.ThreadPool.NewRequestQueue()
-		c.ThreadPool.queuePriorityMutex.Lock()
 		c.ThreadPool.queuePriorityMap[opts.RequestPriority] = queue
-		c.ThreadPool.queuePriorityMutex.Unlock()
 	}
+	c.ThreadPool.queuePriorityMutex.Unlock()
 
 	queue <- PendingRequest{rawreq, msg, opts}
 

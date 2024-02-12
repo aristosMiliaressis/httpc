@@ -56,7 +56,7 @@ func (r *RateThrottle) CurrentRate() int64 {
 }
 
 func (r *RateThrottle) ChangeRate(rate int) {
-	if rate == 0 {
+	if rate <= 0 {
 		return
 	}
 

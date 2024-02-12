@@ -30,6 +30,7 @@ type ThreadPool struct {
 	queuePriorityMutex sync.RWMutex
 	queueBufferSize    int
 
+	lockedWorkers chan bool
 	processCallback func(uow PendingRequest)
 }
 
@@ -44,6 +45,7 @@ func NewThreadPool(callback func(uow PendingRequest), context context.Context, r
 		processCallback:  callback,
 		minDelay:         delay.Min,
 		maxDelay:         delay.Max,
+		lockedWorkers: make(chan bool, bufferSize),
 		Rate:             rate.NewRateThrottle(rps),
 		queuePriorityMap: make(map[Priority]RequestQueue),
 	}
@@ -78,7 +80,7 @@ func (tp *ThreadPool) Run() {
 
 						threadLimiter = false
 
-						if int(threadCount.Load()) > 1 {
+						if int(threadCount.Load()) - len(tp.lockedWorkers) > 1 {
 							threadCount.Add(-1)
 							return
 						} else {

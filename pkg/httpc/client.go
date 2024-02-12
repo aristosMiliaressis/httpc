@@ -1,6 +1,7 @@
 package httpc
 
 import (
+	"sync/atomic"
 	"bufio"
 	"bytes"
 	"compress/flate"
@@ -40,6 +41,7 @@ type HttpClient struct {
 
 	errorLog   map[string]int
 	errorMutex sync.Mutex
+	ipBanCheck atomic.Bool
 
 	totalErrors       int
 	totalSuccessful   int
@@ -319,7 +321,7 @@ func (c *HttpClient) handleMessage(uow PendingRequest) {
 	gologger.Debug().Msgf("%s %s %d\n", uow.Message.Request.URL.String(), uow.Message.Response.Status, uow.Message.Response.ContentLength)
 
 	// Update cookie jar
-	if c.Options.MaintainCookieJar && uow.Message.Response.Cookies() != nil {
+	if uow.Options.MaintainCookieJar && uow.Message.Response.Cookies() != nil {
 		for _, cookie := range uow.Message.Response.Cookies() {
 			c.AddCookie(cookie.Name, cookie.Value)
 		}
@@ -359,7 +361,7 @@ func (c *HttpClient) handleMessage(uow PendingRequest) {
 	}
 
 	// handle http errors
-	if uow.Message.TransportError != NoError || (uow.Message.Response.StatusCode >= 400 && c.Options.ErrorHandling.Matches(uow.Message.Response.StatusCode)) {
+	if uow.Message.TransportError != NoError || (uow.Message.Response.StatusCode >= 400 && uow.Options.ErrorHandling.Matches(uow.Message.Response.StatusCode)) {
 		c.totalErrors += 1
 		c.consecutiveErrors += 1
 		c.handleHttpError(uow.Message)
@@ -406,7 +408,9 @@ func (c *HttpClient) handleMessage(uow PendingRequest) {
 
 		newMsg := c.SendWithOptions(redirectedReq, uow.Options)
 		newMsg.AddRedirect(uow.Message)
+		c.ThreadPool.lockedWorkers <- true
 		<-newMsg.Resolved
+		<-c.ThreadPool.lockedWorkers
 
 		c.MessageLog = append(c.MessageLog, newMsg)
 

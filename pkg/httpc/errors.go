@@ -133,6 +133,11 @@ func (c *HttpClient) handleHttpError(msg *MessageDuplex) {
 }
 
 func (c *HttpClient) verifyIpBan(msg *MessageDuplex) bool {
+	if c.ipBanCheck.Load() {
+		return false
+	}
+	defer c.ipBanCheck.Store(false)
+	c.ipBanCheck.Store(true)
 
 	gologger.Warning().Msg("Potential IP ban detected, verifying..")
 
@@ -145,9 +150,7 @@ func (c *HttpClient) verifyIpBan(msg *MessageDuplex) bool {
 	})
 
 	if len(messages) == 0 {
-		gologger.Warning().Msg("IP ban detected, exiting.")
-
-		return true
+		messages = c.MessageLog
 	}
 
 	c.ThreadPool.Rate.Stop()
@@ -157,10 +160,13 @@ func (c *HttpClient) verifyIpBan(msg *MessageDuplex) bool {
 
 	opts := c.Options
 	opts.RequestPriority = 1000
-	newMsg := c.Send(req)
+	opts.Performance.ReplayRateLimitted = false
+	newMsg := c.SendWithOptions(req, opts)
 
 	c.ThreadPool.Rate.ChangeRate(1)
+	c.ThreadPool.lockedWorkers <- true
 	<-newMsg.Resolved
+	<-c.ThreadPool.lockedWorkers
 
 	if msg.TransportError != NoError && newMsg.TransportError != msg.TransportError {
 		gologger.Warning().Msg("No IP ban, continuing..")

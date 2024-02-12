@@ -65,7 +65,7 @@ func (c *HttpClient) handleTransportError(msg *MessageDuplex, err error) {
 				return
 			}
 			if c.Options.ErrorHandling.ReportErrorsIfExheeded {
-				c.printErrorReport()
+				gologger.Info().Msg(c.getErrorSummary())
 			}
 			gologger.Fatal().Msgf("Exceeded %d consecutive errors threshold, exiting.", c.Options.ErrorHandling.ConsecutiveThreshold)
 		}
@@ -83,7 +83,7 @@ func (c *HttpClient) handleTransportError(msg *MessageDuplex, err error) {
 				return
 			}
 			if c.Options.ErrorHandling.ReportErrorsIfExheeded {
-				c.printErrorReport()
+				gologger.Info().Msg(c.getErrorSummary())
 			}
 			gologger.Fatal().Msgf("%d errors out of %d requests exceeded %d%% error threshold, exiting.", c.totalErrors, c.totalSuccessful+c.totalErrors, c.Options.ErrorHandling.PercentageThreshold)
 		}
@@ -107,7 +107,7 @@ func (c *HttpClient) handleHttpError(msg *MessageDuplex) {
 				return
 			}
 			if c.Options.ErrorHandling.ReportErrorsIfExheeded {
-				c.printErrorReport()
+				gologger.Info().Msg(c.getErrorSummary())
 			}
 			gologger.Fatal().Msgf("Exceeded %d consecutive errors threshold, exiting.", c.Options.ErrorHandling.ConsecutiveThreshold)
 		}
@@ -125,7 +125,7 @@ func (c *HttpClient) handleHttpError(msg *MessageDuplex) {
 				return
 			}
 			if c.Options.ErrorHandling.ReportErrorsIfExheeded {
-				c.printErrorReport()
+				gologger.Info().Msg(c.getErrorSummary())
 			}
 			gologger.Fatal().Msgf("%d errors out of %d requests exceeded %d%% error threshold, exiting.", c.totalErrors, c.totalSuccessful+c.totalErrors, c.Options.ErrorHandling.PercentageThreshold)
 		}
@@ -181,7 +181,7 @@ func (c *HttpClient) verifyIpBan(msg *MessageDuplex) bool {
 	return true
 }
 
-func (c *HttpClient) printErrorReport() {
+func (c *HttpClient) getErrorSummary() string {
 	timeouts := c.MessageLog.Search(func(e *MessageDuplex) bool {
 		return e.TransportError == Timeout
 	})
@@ -203,11 +203,23 @@ func (c *HttpClient) printErrorReport() {
 		groupedHttpErrors[errorResponse.Response.StatusCode] += 1
 	}
 
-	fmt.Printf("Timeouts: %d, ConnectionReset: %d, GenericTransportError: %d\n", len(timeouts), len(connectionReset), len(generalTransportError))
+	errorPercentage := int(100.0/(float64((c.totalSuccessful+c.totalErrors))/float64(c.totalErrors)))
+	
+	errorTypes := []string{}
 	for status, count := range groupedHttpErrors {
-		fmt.Printf("%d: %d, ", status, count)
+		errorTypes = append(errorTypes, fmt.Sprintf("%d: %d", status, count))
 	}
-	fmt.Printf("failed: %d, successful: %d\n", c.totalErrors, c.totalSuccessful)
+	if len(timeouts) != 0 {
+		errorTypes = append(errorTypes, fmt.Sprintf("Timeouts: %d", len(timeouts)))
+	}
+	if len(connectionReset) != 0 {
+		errorTypes = append(errorTypes, fmt.Sprintf("ConnectionReset: %d", len(connectionReset)))
+	}
+	if len(generalTransportError) != 0 {
+		errorTypes = append(errorTypes, fmt.Sprintf("GenericTransportError: %d", len(generalTransportError)))
+	}
+	return fmt.Sprintf("successful: %d, failed: %d, consecutive errors: %d, percentage: %d%% (%s)\n", 
+		c.totalSuccessful, c.totalErrors, c.consecutiveErrors, errorPercentage, strings.Join(errorTypes[:], ","))
 }
 
 // func isRSTError(err error) bool {

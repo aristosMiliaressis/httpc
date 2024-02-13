@@ -79,6 +79,10 @@ func (r *RateThrottle) Stop() {
 func (r *RateThrottle) Tick(end time.Time) {
 	r.rateMutex.Lock()
 	defer r.rateMutex.Unlock()
+	
+	if r.RPS == 0 {
+		return
+	}
 
 	r.rateCounter = r.rateCounter.Next()
 	r.rateCounter.Value = end.UnixMicro()

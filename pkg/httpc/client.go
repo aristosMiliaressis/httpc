@@ -92,7 +92,7 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts ClientOptions) *Mes
 		Resolved: make(chan bool, 1),
 	}
 
-	if c.Options.Connection.EnableIPRotate {
+	if opts.Connection.EnableIPRotate {
 		c.enableIpRotate(msg.Request.URL)
 	}
 
@@ -111,15 +111,15 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts ClientOptions) *Mes
 		c.apiGatewayMutex.Unlock()
 	}
 
-	if c.Options.SimulateBrowserRequests {
+	if opts.SimulateBrowserRequests {
 		util.SimulateBrowserRequest(msg.Request)
 	}
 
-	if c.Options.RandomizeUserAgent {
+	if opts.RandomizeUserAgent {
 		msg.Request.Header.Set("User-Agent", uarand.GetRandom())
 	}
 
-	for k, v := range c.Options.DefaultHeaders {
+	for k, v := range opts.DefaultHeaders {
 		msg.Request.Header.Set(k, v)
 	}
 
@@ -407,9 +407,9 @@ func (c *HttpClient) handleMessage(uow PendingRequest) {
 
 		newMsg := c.SendWithOptions(redirectedReq, uow.Options)
 		newMsg.AddRedirect(uow.Message)
-		c.ThreadPool.lockedWorkers <- true
+		c.ThreadPool.lockedThreads <- true
 		<-newMsg.Resolved
-		<-c.ThreadPool.lockedWorkers
+		<-c.ThreadPool.lockedThreads
 
 		c.MessageLog = append(c.MessageLog, newMsg)
 

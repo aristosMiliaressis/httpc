@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"sort"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/aristosMiliaressis/httpc/internal/rate"
@@ -30,7 +29,9 @@ type ThreadPool struct {
 	queuePriorityMutex sync.RWMutex
 	queueBufferSize    int
 
-	lockedWorkers chan bool
+	totalThreads chan bool
+	lockedThreads chan bool
+	
 	processCallback func(uow PendingRequest)
 }
 
@@ -45,7 +46,8 @@ func NewThreadPool(callback func(uow PendingRequest), context context.Context, r
 		processCallback:  callback,
 		minDelay:         delay.Min,
 		maxDelay:         delay.Max,
-		lockedWorkers: make(chan bool, bufferSize),
+		totalThreads:     make(chan bool, bufferSize),
+		lockedThreads:    make(chan bool, bufferSize),
 		Rate:             rate.NewRateThrottle(rps),
 		queuePriorityMap: make(map[Priority]RequestQueue),
 	}
@@ -53,7 +55,6 @@ func NewThreadPool(callback func(uow PendingRequest), context context.Context, r
 
 func (tp *ThreadPool) Run() {
 
-	var threadCount atomic.Int64
 	var threadLimiter bool
 
 	for i := 1; true; i++ {
@@ -63,11 +64,11 @@ func (tp *ThreadPool) Run() {
 		pending := tp.getPendingCount()
 
 		gologger.Debug().Msgf("threads: %d, desiredRate: %d, currentRate: %d, delay: %f-%fs, pending: %d\n",
-			int(threadCount.Load()), tp.Rate.RPS, tp.Rate.CurrentRate(), tp.minDelay, tp.maxDelay, pending)
+			len(tp.totalThreads), tp.Rate.RPS, tp.Rate.CurrentRate(), tp.minDelay, tp.maxDelay, pending)
 
 		if tp.Rate.CurrentRate() < int64(tp.Rate.RPS) && tp.getPendingCount() > 0 {
 
-			threadCount.Add(1)
+			tp.totalThreads <- true
 
 			go func(workerID int) {
 				for {
@@ -80,8 +81,8 @@ func (tp *ThreadPool) Run() {
 
 						threadLimiter = false
 
-						if int(threadCount.Load()) - len(tp.lockedWorkers) > 1 {
-							threadCount.Add(-1)
+						if len(tp.totalThreads) - len(tp.lockedThreads) > 1 {
+							<-tp.totalThreads
 							return
 						} else {
 							tp.minDelay += 0.1

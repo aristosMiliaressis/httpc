@@ -164,9 +164,9 @@ func (c *HttpClient) verifyIpBan(msg *MessageDuplex) bool {
 	newMsg := c.SendWithOptions(req, opts)
 
 	c.ThreadPool.Rate.ChangeRate(1)
-	c.ThreadPool.lockedWorkers <- true
+	c.ThreadPool.lockedThreads <- true
 	<-newMsg.Resolved
-	<-c.ThreadPool.lockedWorkers
+	<-c.ThreadPool.lockedThreads
 
 	if msg.TransportError != NoError && newMsg.TransportError != msg.TransportError {
 		gologger.Warning().Msg("No IP ban, continuing..")

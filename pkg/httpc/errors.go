@@ -33,6 +33,10 @@ func (e TransportError) MarshalJSON() ([]byte, error) {
 
 func (c *HttpClient) handleTransportError(msg *MessageDuplex, err error) {
 
+	if strings.Contains(err.Error(), "context canceled") {
+		return
+	}
+	
 	c.errorMutex.Lock()
 	c.totalErrors += 1
 	c.consecutiveErrors += 1

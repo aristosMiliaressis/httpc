@@ -31,6 +31,7 @@ type ThreadPool struct {
 
 	totalThreads chan bool
 	lockedThreads chan bool
+	threadLimiter bool
 	
 	processCallback func(uow PendingRequest)
 }
@@ -55,11 +56,14 @@ func NewThreadPool(callback func(uow PendingRequest), context context.Context, r
 
 func (tp *ThreadPool) Run() {
 
-	var threadLimiter bool
-
 	for i := 1; true; i++ {
-
-		threadLimiter = true
+		select {
+		case <-tp.context.Done():
+			return
+		default:
+		}
+		
+		tp.threadLimiter = true
 
 		pending := tp.getPendingCount()
 
@@ -70,29 +74,7 @@ func (tp *ThreadPool) Run() {
 
 			tp.totalThreads <- true
 
-			go func(workerID int) {
-				for {
-					uow := tp.getNextPrioritizedRequest()
-
-					tp.processCallback(uow)
-					tp.Rate.Tick(time.Now())
-
-					if threadLimiter && (tp.Rate.CurrentRate() > int64(tp.Rate.RPS) || tp.getPendingCount() == 0) {
-
-						threadLimiter = false
-
-						if len(tp.totalThreads) - len(tp.lockedThreads) > 1 {
-							<-tp.totalThreads
-							return
-						} else {
-							tp.minDelay += 0.1
-							tp.maxDelay += 0.1
-						}
-					}
-
-					tp.sleepIfNeeded()
-				}
-			}(i)
+			go tp.work(i)
 		}
 
 		<-time.After(time.Millisecond * 1000)
@@ -100,7 +82,6 @@ func (tp *ThreadPool) Run() {
 }
 
 func (tp *ThreadPool) getNextPrioritizedRequest() PendingRequest {
-
 	for {
 		priorities := []int{}
 		tp.queuePriorityMutex.RLock()
@@ -143,5 +124,34 @@ func (tp *ThreadPool) sleepIfNeeded() {
 	select {
 	case <-tp.context.Done():
 	case <-time.After(sleepDuration):
+	}
+}
+
+func (tp *ThreadPool) work(workerID int) {
+	for {
+		select{
+		case <-tp.context.Done():
+			return
+		default:
+			uow := tp.getNextPrioritizedRequest()
+
+			tp.processCallback(uow)
+			tp.Rate.Tick(time.Now())
+
+			if tp.threadLimiter && (tp.Rate.CurrentRate() > int64(tp.Rate.RPS) || tp.getPendingCount() == 0) {
+
+				tp.threadLimiter = false
+
+				if len(tp.totalThreads) - len(tp.lockedThreads) > 1 {
+					<-tp.totalThreads
+					return
+				} else {
+					tp.minDelay += 0.1
+					tp.maxDelay += 0.1
+				}
+			}
+
+			tp.sleepIfNeeded()
+		}
 	}
 }

@@ -65,6 +65,7 @@ type CacheBustingOptions struct {
 	AcceptLanguage    bool   `json:",omitempty"`
 	StaticCacheBuster string `json:"-"`
 	QueryParam        string `json:",omitempty"`
+	CookieParam       string `json:",omitempty"`
 }
 
 type Range struct {

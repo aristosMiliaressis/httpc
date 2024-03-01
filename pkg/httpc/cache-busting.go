@@ -38,6 +38,15 @@ func (opts CacheBustingOptions) Apply(req *http.Request) {
 		}
 		return
 	}
+	
+	if opts.CookieParam != "" {
+		param, _ := req.Cookie(opts.CookieParam)
+		// if param already exists, dont replace it
+		if param == nil {
+			req.AddCookie(&http.Cookie{Name:opts.CookieParam, Value:opts.getCacheBuster()})
+		}
+		return
+	}
 
 	if opts.Query {
 		param := req.URL.Query().Get(DefaultCacheBusterParam)
@@ -112,6 +121,20 @@ func (opts CacheBustingOptions) Clear(req *http.Request) {
 		q := req.URL.Query()
 		q.Del(opts.QueryParam)
 		req.URL.RawQuery = q.Encode()
+	}
+	
+	if opts.CookieParam != "" {
+		var cookies []*http.Cookie
+		for _, cookie := range req.Cookies() {
+			if cookie.Name == opts.CookieParam {
+				continue
+			}
+			cookies = append(cookies, cookie)
+		}
+		req.Header.Del("Cookie")
+		for _, cookie := range cookies {
+			req.AddCookie(cookie)
+		}
 	}
 
 	if opts.Query {

@@ -40,11 +40,18 @@ func (opts CacheBustingOptions) Apply(req *http.Request) {
 	}
 	
 	if opts.CookieParam != "" {
-		param, _ := req.Cookie(opts.CookieParam)
-		// if param already exists, dont replace it
-		if param == nil {
-			req.AddCookie(&http.Cookie{Name:opts.CookieParam, Value:opts.getCacheBuster()})
+		var cookies []*http.Cookie
+		for _, cookie := range req.Cookies() {
+			if cookie.Name == opts.CookieParam {
+				continue
+			}
+			cookies = append(cookies, cookie)
 		}
+		req.Header.Del("Cookie")
+		for _, cookie := range cookies {
+			req.AddCookie(cookie)
+		}
+		req.AddCookie(&http.Cookie{Name:opts.CookieParam, Value:opts.getCacheBuster()})
 		return
 	}
 

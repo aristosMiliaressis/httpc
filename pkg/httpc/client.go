@@ -70,15 +70,27 @@ func NewHttpClient(opts ClientOptions, ctx context.Context) *HttpClient {
 }
 
 func (c *HttpClient) Close() {
+	c.cancel()
+
 	c.apiGatewayMutex.Lock()
 	for k := range c.apiGateways {
 		c.apiGateways[k].Delete()
 	}
 	c.apiGatewayMutex.Unlock()
 
-	for k := range c.ThreadPool.queuePriorityMap {
-		close(c.ThreadPool.queuePriorityMap[k])
+	c.ThreadPool.queuePriorityMutex.Lock()
+	for p := range c.ThreadPool.queuePriorityMap {
+		ch := c.ThreadPool.queuePriorityMap[p]
+		delete(c.ThreadPool.queuePriorityMap, p)
+		for len(ch) > 0 {
+			req := <-ch
+			close(req.Message.Resolved)
+		}
+		close(ch)
 	}
+	c.ThreadPool.queuePriorityMutex.Unlock()
+	close(c.ThreadPool.totalThreads)
+	close(c.ThreadPool.lockedThreads)
 }
 
 func (c *HttpClient) Send(req *http.Request) *MessageDuplex {
@@ -164,7 +176,13 @@ func (c *HttpClient) SendWithOptions(req *http.Request, opts ClientOptions) *Mes
 	}
 	c.ThreadPool.queuePriorityMutex.Unlock()
 
-	queue <- PendingRequest{"", msg, opts}
+	select {
+	case <-c.context.Done():
+		close(msg.Resolved)
+		return msg
+	default:
+		queue <- PendingRequest{"", msg, opts}
+	}
 
 	return msg
 }
@@ -188,7 +206,13 @@ func (c *HttpClient) SendRawWithOptions(rawreq string, baseUrl string, opts Clie
 	}
 	c.ThreadPool.queuePriorityMutex.Unlock()
 
-	queue <- PendingRequest{rawreq, msg, opts}
+	select {
+	case <-c.context.Done():
+		close(msg.Resolved)
+		return msg
+	default:
+		queue <- PendingRequest{rawreq, msg, opts}
+	}
 
 	return msg
 }

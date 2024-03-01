@@ -145,10 +145,13 @@ func (tp *ThreadPool) work(workerID int) {
 				if len(tp.totalThreads) - len(tp.lockedThreads) > 1 {
 					<-tp.totalThreads
 					return
-				} else {
+				} else if tp.getPendingCount() != 0 {
 					tp.minDelay += 0.1
 					tp.maxDelay += 0.1
 				}
+			} else if tp.minDelay >= 0.1 {
+				tp.minDelay -= 0.1
+				tp.maxDelay -= 0.1
 			}
 
 			tp.sleepIfNeeded()

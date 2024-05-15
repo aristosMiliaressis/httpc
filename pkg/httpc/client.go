@@ -311,10 +311,9 @@ func (c *HttpClient) handleMessage(uow PendingRequest) {
 			uow.Message.Response, sendErr = c.client.Do(uow.Message.Request)
 		}
 	} else {
-		rawhttpOptions := rawhttp.DefaultOptions
-		rawhttpOptions.AutomaticHostHeader = false
-		rawhttpOptions.CustomRawBytes = []byte(uow.RawRequest)
-		httpclient := rawhttp.NewClient(rawhttpOptions)
+		opts := c.Options.RawHttp
+		opts.CustomRawBytes = []byte(uow.RawRequest)
+		httpclient := rawhttp.NewClient(&opts)
 		defer httpclient.Close()
 
 		uow.Message.Response, sendErr = httpclient.DoRaw("GET", uow.Message.Request.URL.String(), "", nil, nil)
@@ -436,6 +435,9 @@ func (c *HttpClient) handleMessage(uow PendingRequest) {
 		<-c.ThreadPool.lockedThreads
 
 		c.MessageLog = append(c.MessageLog, newMsg)
+		
+		uow.Message.Request = newMsg.Request
+		uow.Message.Response = newMsg.Response
 
 		return
 	}

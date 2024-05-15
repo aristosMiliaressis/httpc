@@ -1,6 +1,9 @@
 package httpc
 
-import "github.com/aristosMiliaressis/httpc/internal/util"
+import (
+	"github.com/projectdiscovery/rawhttp"
+	"github.com/aristosMiliaressis/httpc/internal/util"
+)
 
 type ClientOptions struct {
 	SimulateBrowserRequests bool
@@ -15,6 +18,7 @@ type ClientOptions struct {
 	Redirection   RedirectionOptions
 	Performance   PerformanceOptions
 	ErrorHandling ErrorHandlingOptions
+	RawHttp       rawhttp.Options
 }
 
 type ConnectionOptions struct {
@@ -101,6 +105,9 @@ var DefaultOptions = ClientOptions{
 		VerifyIPBanIfExheeded:  true,
 		ReportErrorsIfExheeded: true,
 		HandleErrorCodes:       []int{401, 402, 404, 405, 406, 407, 410, 411, 412, 413, 414, 415, 416, 417, 426, 431, 500, 501},
+	},
+	RawHttp: rawhttp.Options{
+		AutomaticHostHeader: false,
 	},
 }
 

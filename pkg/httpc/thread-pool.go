@@ -66,16 +66,18 @@ func (tp *ThreadPool) Run() {
 		tp.threadLimiter = true
 
 		pending := tp.getPendingCount()
+		
+		throttleRate := tp.Rate.GetThrottleRate()
 
-		gologger.Debug().Msgf("threads: %d, desiredRate: %d, currentRate: %d, delay: %f-%fs, pending: %d\n",
-			len(tp.totalThreads), tp.Rate.RPS, tp.Rate.CurrentRate(), tp.minDelay, tp.maxDelay, pending)
+		gologger.Debug().Msgf("threads: %d, desiredRate: %d, currentRate: %d, throttleRate: %d, delay: %f-%fs, pending: %d\n",
+			len(tp.totalThreads), tp.Rate.RPS, tp.Rate.CurrentRate(), throttleRate, tp.minDelay, tp.maxDelay, pending)
 		
 		<-time.After(time.Millisecond * 1000)
 		if tp.getPendingCount() == 0 {
 			continue
 		}
 		
-		if tp.Rate.CurrentRate() < int64(tp.Rate.RPS) || len(tp.totalThreads) - len(tp.lockedThreads) == 0 {
+		if tp.Rate.CurrentRate() < int64(tp.Rate.RPS) - int64(throttleRate) || len(tp.totalThreads) - len(tp.lockedThreads) == 0 {
 			tp.totalThreads <- true
 
 			go tp.work(i)

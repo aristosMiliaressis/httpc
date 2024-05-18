@@ -301,6 +301,8 @@ func createInternalHttpClient(opts ClientOptions) http.Client {
 func (c *HttpClient) handleMessage(uow PendingRequest) {
 	defer func() { uow.Message.Resolved <- true }()
 
+	c.ThreadPool.Rate.SetRatelimitPercentage(c.calculate429Percentage())
+	
 	var sendErr error
 	if uow.RawRequest == "" {
 		if uow.Options.Connection.SNI != "" {
@@ -444,10 +446,6 @@ func (c *HttpClient) handleMessage(uow PendingRequest) {
 
 	// handle rate-limitting
 	if uow.Message.Response.StatusCode == 429 || uow.Message.Response.StatusCode == 529 {
-		if uow.Options.Performance.AutoRateThrottle {
-			c.ThreadPool.Rate.ChangeRate(c.ThreadPool.Rate.RPS - 1)
-		}
-
 		if uow.Options.Performance.ReplayRateLimitted {
 			replayReq := uow.Message.Request.Clone(c.context)
 			uow.Message = c.SendWithOptions(replayReq, uow.Options)
@@ -455,4 +453,21 @@ func (c *HttpClient) handleMessage(uow PendingRequest) {
 
 		uow.Message.RateLimited = true
 	}
+}
+
+func (c *HttpClient) calculate429Percentage() uint8 {
+	if !c.Options.Performance.AutoRateThrottle || len(c.MessageLog) == 0 {
+		return 0
+	}
+	
+	idx := len(c.MessageLog) - 100
+	if idx < 0 {
+		idx = 0
+	}
+	
+	rateLimitedRequests := c.MessageLog[idx:].Search(func(msg *MessageDuplex) bool {
+		return msg.Response != nil && msg.Response.StatusCode == 429
+	})
+	
+	return uint8(float32(len(rateLimitedRequests)) / float32(len(c.MessageLog[idx:])) * 100)
 }

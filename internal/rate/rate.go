@@ -12,6 +12,7 @@ type RateThrottle struct {
 	RateLimiter *time.Ticker
 	rateCounter *ring.Ring
 	rateMutex   sync.Mutex
+	throttleRate uint64
 }
 
 func NewRateThrottle(rate int) *RateThrottle {
@@ -73,6 +74,17 @@ func (r *RateThrottle) Stop() {
 	r.RPS = 0
 	r.RateLimiter.Stop()
 	r.rateCounter = ring.New(0)
+}
+
+func (r *RateThrottle) SetRatelimitPercentage(percentage uint8) {
+	if percentage > 100 {
+		panic("Ratelimit percentage above 100 passed, that's a bug")
+	}
+	r.throttleRate = uint64(float64(r.RPS) / 100 * float64(percentage))
+}
+
+func (r *RateThrottle) GetThrottleRate() uint64 {
+	return r.throttleRate
 }
 
 // rateTick adds a new duration measurement Tick to rate counter

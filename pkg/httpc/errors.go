@@ -7,7 +7,6 @@ import (
 	"os"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/projectdiscovery/gologger"
 )
@@ -157,9 +156,6 @@ func (c *HttpClient) verifyIpBan(msg *MessageDuplex) bool {
 		messages = c.MessageLog
 	}
 
-	c.ThreadPool.Rate.Stop()
-	<-time.After(time.Second * 5)
-
 	req := messages[0].Request.Clone(c.context)
 
 	opts := c.Options
@@ -167,7 +163,6 @@ func (c *HttpClient) verifyIpBan(msg *MessageDuplex) bool {
 	opts.Performance.ReplayRateLimitted = false
 	newMsg := c.SendWithOptions(req, opts)
 
-	c.ThreadPool.Rate.ChangeRate(1)
 	c.ThreadPool.lockedThreads <- true
 	<-newMsg.Resolved
 	<-c.ThreadPool.lockedThreads

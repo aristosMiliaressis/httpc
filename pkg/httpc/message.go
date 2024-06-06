@@ -13,24 +13,19 @@ type MessageDuplex struct {
 	Response *http.Response
 	Resolved chan bool
 
-	// Redirect Chain LinkedList
+	// Redirect Chain
 	Prev *MessageDuplex
-
-	MaxRedirectsExheeded bool
-	CrossOriginRedirect  bool
-	CrossSiteRedirect    bool
-
-	RateLimited bool
 }
 
 func (e MessageDuplex) RedirectDepth() int {
 	depth := 0
+	tmp := *e.Prev
 	for {
-		if e.Prev == nil {
+		if tmp.Prev == nil {
 			return depth
 		}
 
-		e = *e.Prev
+		tmp = *tmp.Prev
 		depth++
 	}
 }
@@ -51,16 +46,4 @@ func (e MessageDuplex) IsRedirectLoop() bool {
 	new := ToAbsolute(original, e.Response.Header["Location"][0])
 
 	return original == new || originalWithCacheBuster == new
-}
-
-func (e *MessageDuplex) AddRedirect(prev *MessageDuplex) {
-	current := e
-
-	for {
-		if current.Prev == nil {
-			current.Prev = prev
-			break
-		}
-		current = current.Prev
-	}
 }

@@ -402,20 +402,16 @@ func (c *HttpClient) handleMessage(uow PendingRequest) {
 
 		absRedirect := GetRedirectLocation(uow.Message.Response)
 
-		uow.Message.CrossOriginRedirect = IsCrossOrigin(uow.Message.Request.URL.String(), absRedirect)
-		uow.Message.CrossSiteRedirect = IsCrossSite(uow.Message.Request.URL.String(), absRedirect)
-
-		if uow.Options.Redirection.PreventCrossOriginRedirects && uow.Message.CrossOriginRedirect {
+		if uow.Options.Redirection.PreventCrossOriginRedirects && IsCrossOrigin(uow.Message.Request.URL.String(), absRedirect) {
 			return
 		}
 
-		if uow.Options.Redirection.PreventCrossSiteRedirects && uow.Message.CrossSiteRedirect {
+		if uow.Options.Redirection.PreventCrossSiteRedirects && IsCrossSite(uow.Message.Request.URL.String(), absRedirect) {
 			return
 		}
 
 		uow.Options.Redirection.currentDepth++
 		if uow.Options.Redirection.currentDepth > uow.Options.Redirection.MaxRedirects {
-			uow.Message.MaxRedirectsExheeded = true
 			return
 		}
 
@@ -431,15 +427,25 @@ func (c *HttpClient) handleMessage(uow PendingRequest) {
 		redirectedReq.URL, _ = url.Parse(absRedirect)
 
 		newMsg := c.SendWithOptions(redirectedReq, uow.Options)
-		newMsg.AddRedirect(uow.Message)
 		c.ThreadPool.lockedThreads <- true
 		<-newMsg.Resolved
 		<-c.ThreadPool.lockedThreads
 
 		c.MessageLog = append(c.MessageLog, newMsg)
 		
+		tmpMsg := MessageDuplex{
+			Request: uow.Message.Request,
+			Response: uow.Message.Response,
+			TransportError: uow.Message.TransportError,
+			Duration: uow.Message.Duration,
+			Prev: uow.Message.Prev,
+		}
+
 		uow.Message.Request = newMsg.Request
 		uow.Message.Response = newMsg.Response
+		uow.Message.TransportError = newMsg.TransportError
+		uow.Message.Duration = newMsg.Duration
+		uow.Message.Prev = &tmpMsg
 
 		return
 	}
@@ -450,8 +456,6 @@ func (c *HttpClient) handleMessage(uow PendingRequest) {
 			replayReq := uow.Message.Request.Clone(c.context)
 			uow.Message = c.SendWithOptions(replayReq, uow.Options)
 		}
-
-		uow.Message.RateLimited = true
 	}
 }
 

@@ -19,11 +19,12 @@ const (
 	ConnectionReset
 	TlsNegotiationFailure
 	DnsError
+	UnsupportedProtocolScheme
 	UnknownError
 )
 
 func (e TransportError) String() string {
-	return []string{"NoError", "Timeout", "ConnectionReset", "TlsNegotiationFailure", "DnsError", "UnknownError"}[e]
+	return []string{"NoError", "Timeout", "ConnectionReset", "TlsNegotiationFailure", "DnsError", "UnsupportedProtocolScheme", "UnknownError"}[e]
 }
 
 func (e TransportError) MarshalJSON() ([]byte, error) {
@@ -49,7 +50,10 @@ func (c *HttpClient) handleTransportError(msg *MessageDuplex, err error) {
 		strings.Contains(err.Error(), "server sent GOAWAY and closed the connection") {
 		msg.TransportError = ConnectionReset
 		c.errorLog[ConnectionReset.String()] += 1
-	} else {
+	} else if strings.Contains(err.Error(), "unsupported protocol scheme") {
+		msg.TransportError = UnsupportedProtocolScheme
+		c.errorLog[UnsupportedProtocolScheme.String()] += 1
+ 	} else {
 		gologger.Error().Msg(err.Error())
 		msg.TransportError = UnknownError
 		c.errorLog[UnknownError.String()] += 1

@@ -15,6 +15,9 @@ func (log MessageLog) Find(where func(msg *MessageDuplex) bool) *MessageDuplex {
 func (log MessageLog) Search(where func(msg *MessageDuplex) bool) MessageLog {
 	found := MessageLog{}
 	for _, msg := range log {
+		if msg == nil {
+			continue
+		}
 		for {
 			if where(msg) {
 				found = append(found, msg)

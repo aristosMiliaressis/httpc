@@ -36,7 +36,9 @@ func (opts CacheBustingOptions) Apply(req *http.Request) {
 			}
 			req.URL.RawQuery += fmt.Sprintf("%s=%s", opts.QueryParam, opts.getCacheBuster())
 		}
-		return
+		if !opts.AddEverywhere {
+			return
+		}
 	}
 	
 	if opts.CookieParam != "" {
@@ -52,7 +54,9 @@ func (opts CacheBustingOptions) Apply(req *http.Request) {
 			req.AddCookie(cookie)
 		}
 		req.AddCookie(&http.Cookie{Name:opts.CookieParam, Value:opts.getCacheBuster()})
-		return
+		if !opts.AddEverywhere {
+			return
+		}
 	}
 
 	if opts.Query {
@@ -64,12 +68,16 @@ func (opts CacheBustingOptions) Apply(req *http.Request) {
 			}
 			req.URL.RawQuery += fmt.Sprintf("%s=%s", DefaultCacheBusterParam, opts.getCacheBuster())
 		}
-		return
+		if !opts.AddEverywhere {
+			return
+		}
 	}
 
 	if opts.Origin {
 		req.Header.Set("Origin", req.URL.Scheme+"://"+opts.getCacheBuster()+"."+req.URL.Host)
-		return
+		if !opts.AddEverywhere {
+			return
+		}
 	}
 
 	if opts.Accept {
@@ -78,7 +86,9 @@ func (opts CacheBustingOptions) Apply(req *http.Request) {
 		} else {
 			req.Header["Accept"][0] = req.Header["Accept"][0] + ", text/" + opts.getCacheBuster() + ";q=0.1"
 		}
-		return
+		if !opts.AddEverywhere {
+			return
+		}
 	}
 
 	if opts.AcceptEncoding {
@@ -87,7 +97,9 @@ func (opts CacheBustingOptions) Apply(req *http.Request) {
 		} else {
 			req.Header["Accept-Encoding"][0] = req.Header["Accept-Encoding"][0] + ", " + opts.getCacheBuster()
 		}
-		return
+		if !opts.AddEverywhere {
+			return
+		}
 	}
 
 	if opts.AcceptLanguage {
@@ -96,7 +108,9 @@ func (opts CacheBustingOptions) Apply(req *http.Request) {
 		} else {
 			req.Header["Accept-Language"][0] = req.Header["Accept-Language"][0] + ", " + opts.getCacheBuster()
 		}
-		return
+		if !opts.AddEverywhere {
+			return
+		}
 	}
 
 	if opts.Cookie {
@@ -105,7 +119,9 @@ func (opts CacheBustingOptions) Apply(req *http.Request) {
 		} else {
 			req.Header["Cookie"][0] = req.Header["Cookie"][0] + "; " + opts.getCacheBuster() + "=1"
 		}
-		return
+		if !opts.AddEverywhere {
+			return
+		}
 	}
 
 	if opts.Port {

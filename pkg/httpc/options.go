@@ -70,6 +70,7 @@ type CacheBustingOptions struct {
 	StaticCacheBuster string `json:"-"`
 	QueryParam        string `json:",omitempty"`
 	CookieParam       string `json:",omitempty"`
+	AddEverywhere     bool   `json:",omitempty"`
 }
 
 type Range struct {

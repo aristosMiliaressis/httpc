@@ -33,6 +33,7 @@ HTTP Client Library for security tooling.
 - [x] auto rate throttling based on 429 responses
 - [ ] auto rate throttling based on ratelimit headers 
 - [ ] adjust request rate according to response rate 
+- [ ] replay & rate throttle based on timeouts/tcp RST
 
 <br>
 

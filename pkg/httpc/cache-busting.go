@@ -183,7 +183,7 @@ func (opts CacheBustingOptions) Clear(req *http.Request) {
 	}
 
 	if opts.Origin {
-		req.Header.Del("Accept-Origin")
+		req.Header.Del("Origin")
 	}
 
 	if opts.Port {

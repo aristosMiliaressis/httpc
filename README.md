@@ -8,12 +8,13 @@ HTTP Client Library for security tooling.
 - [x] request rate control  
 - [x] promise based async interface
 - [x] request priority levels
+  
 <br>
 
-- [x] contextual information regarding http responses (request/response,timming,redirect chain, transport errors)  
+- [x] contextual information regarding http responses (request/response, timing, redirect chain, transport errors)  
 <br>
 
-- [x] support for automatic handling of cookies  
+- [x] support for automatic handling of cookies
 <br>
 
 - [x] max redirect support
@@ -41,23 +42,16 @@ HTTP Client Library for security tooling.
 
 <br>
 
-- [x] browser request simulation
-- [ ] jarm/ja3 emulation
-- https://github.com/Danny-Dasilva/CycleTLS
-- [ ] bot detection bypass?? headlessBrowser + selenium??
-- https://gist.github.com/ultrafunkamsterdam/f6d8b02ae29d69dbb2970cda11fe634f
-- https://github.com/ultrafunkamsterdam/undetected-chromedriver
-- https://github.com/omkarcloud/botasaurus
-- https://blog.cloudflare.com/introducing-im-under-attack-mode/
-
-<br>
-
 - [x] option to ignore ALPN and attempt HTTP/1 or HTTP/2
 - [x] option to disable connection reuse
 - [x] Raw HTTP/1 requests
+- [x] HTTP Pipelining
 - [ ] Raw HTTP/2 requests
 - [ ] Raw HTTP/3 requests
-- [ ] HTTP Pipelining
 - [x] SNI injection      
 - [x] CONNECT method support 
+ 
 <br>
+
+- [x] browser request simulation
+- [ ] jarm/ja3 emulation

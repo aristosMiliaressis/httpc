@@ -240,7 +240,7 @@ func (c *HttpClient) ConnectRequest(proxyUrl *url.URL, destUrl *url.URL, opts Cl
 
 	conn, err := net.Dial("tcp", proxyAddr)
 	if err != nil {
-		gologger.Error().Msgf("dialing proxy %s failed: %v", proxyAddr, err)
+		gologger.Debug().Msgf("dialing proxy %s failed: %v", proxyAddr, err)
 		return &msg
 	}
 	fmt.Fprintf(conn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\nProxy-Authorization: basic aGVsbG86d29ybGQ=\r\n\r\n", destUrl.Host, destUrl.Host)
@@ -255,7 +255,7 @@ func (c *HttpClient) ConnectRequest(proxyUrl *url.URL, destUrl *url.URL, opts Cl
 	// TLS, and in TLS the client speaks first, so we know there's
 	// no unbuffered data. But we can double-check.
 	if br.Buffered() > 0 {
-		gologger.Error().Msgf("unexpected %d bytes of buffered data from CONNECT proxy %q", br.Buffered(), proxyAddr)
+		gologger.Debug().Msgf("unexpected %d bytes of buffered data from CONNECT proxy %q", br.Buffered(), proxyAddr)
 	}
 	return &msg
 }
@@ -380,7 +380,7 @@ func (c *HttpClient) handleMessage(uow PendingRequest) {
 	}
 
 	if dcprsErr != nil {
-		gologger.Error().Msgf("Error while reading response %s", dcprsErr)
+		gologger.Debug().Msgf("Error while reading response %s", dcprsErr)
 		return
 	}
 

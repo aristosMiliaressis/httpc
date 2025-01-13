@@ -54,7 +54,7 @@ func (c *HttpClient) handleTransportError(msg *MessageDuplex, err error) {
 		msg.TransportError = UnsupportedProtocolScheme
 		c.errorLog[UnsupportedProtocolScheme.String()] += 1
  	} else {
-		gologger.Error().Msg(err.Error())
+		gologger.Debug().Msg(err.Error())
 		msg.TransportError = UnknownError
 		c.errorLog[UnknownError.String()] += 1
 	}

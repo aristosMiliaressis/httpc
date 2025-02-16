@@ -36,7 +36,7 @@ func (c *HttpClient) handleTransportError(msg *MessageDuplex, err error) {
 	if strings.Contains(err.Error(), "context canceled") {
 		return
 	}
-	
+
 	c.errorMutex.Lock()
 	c.totalErrors += 1
 	c.consecutiveErrors += 1
@@ -53,7 +53,7 @@ func (c *HttpClient) handleTransportError(msg *MessageDuplex, err error) {
 	} else if strings.Contains(err.Error(), "unsupported protocol scheme") {
 		msg.TransportError = UnsupportedProtocolScheme
 		c.errorLog[UnsupportedProtocolScheme.String()] += 1
- 	} else {
+	} else {
 		gologger.Debug().Msg(err.Error())
 		msg.TransportError = UnknownError
 		c.errorLog[UnknownError.String()] += 1
@@ -72,7 +72,7 @@ func (c *HttpClient) handleTransportError(msg *MessageDuplex, err error) {
 				return
 			}
 			if c.Options.ErrorHandling.ReportErrorsIfExheeded {
-				gologger.Info().Msg(c.getErrorSummary())
+				gologger.Info().Msg(c.GetErrorSummary())
 			}
 			gologger.Fatal().Msgf("Exceeded %d consecutive errors threshold, exiting.", c.Options.ErrorHandling.ConsecutiveThreshold)
 		}
@@ -90,7 +90,7 @@ func (c *HttpClient) handleTransportError(msg *MessageDuplex, err error) {
 				return
 			}
 			if c.Options.ErrorHandling.ReportErrorsIfExheeded {
-				gologger.Info().Msg(c.getErrorSummary())
+				gologger.Info().Msg(c.GetErrorSummary())
 			}
 			gologger.Fatal().Msgf("%d errors out of %d requests exceeded %d%% error threshold, exiting.", c.totalErrors, c.totalSuccessful+c.totalErrors, c.Options.ErrorHandling.PercentageThreshold)
 		}
@@ -114,7 +114,7 @@ func (c *HttpClient) handleHttpError(msg *MessageDuplex) {
 				return
 			}
 			if c.Options.ErrorHandling.ReportErrorsIfExheeded {
-				gologger.Info().Msg(c.getErrorSummary())
+				gologger.Info().Msg(c.GetErrorSummary())
 			}
 			gologger.Fatal().Msgf("Exceeded %d consecutive errors threshold, exiting.", c.Options.ErrorHandling.ConsecutiveThreshold)
 		}
@@ -132,7 +132,7 @@ func (c *HttpClient) handleHttpError(msg *MessageDuplex) {
 				return
 			}
 			if c.Options.ErrorHandling.ReportErrorsIfExheeded {
-				gologger.Info().Msg(c.getErrorSummary())
+				gologger.Info().Msg(c.GetErrorSummary())
 			}
 			gologger.Fatal().Msgf("%d errors out of %d requests exceeded %d%% error threshold, exiting.", c.totalErrors, c.totalSuccessful+c.totalErrors, c.Options.ErrorHandling.PercentageThreshold)
 		}
@@ -184,7 +184,7 @@ func (c *HttpClient) verifyIpBan(msg *MessageDuplex) bool {
 	return true
 }
 
-func (c *HttpClient) getErrorSummary() string {
+func (c *HttpClient) GetErrorSummary() string {
 	timeouts := c.MessageLog.Search(func(e *MessageDuplex) bool {
 		return e.TransportError == Timeout
 	})
@@ -206,8 +206,8 @@ func (c *HttpClient) getErrorSummary() string {
 		groupedHttpErrors[errorResponse.Response.StatusCode] += 1
 	}
 
-	errorPercentage := int(100.0/(float64((c.totalSuccessful+c.totalErrors))/float64(c.totalErrors)))
-	
+	errorPercentage := int(100.0 / (float64((c.totalSuccessful + c.totalErrors)) / float64(c.totalErrors)))
+
 	errorTypes := []string{}
 	for status, count := range groupedHttpErrors {
 		errorTypes = append(errorTypes, fmt.Sprintf("%d: %d", status, count))
@@ -221,7 +221,7 @@ func (c *HttpClient) getErrorSummary() string {
 	if len(generalTransportError) != 0 {
 		errorTypes = append(errorTypes, fmt.Sprintf("GenericTransportError: %d", len(generalTransportError)))
 	}
-	return fmt.Sprintf("successful: %d, failed: %d, consecutive errors: %d, percentage: %d%% (%s)\n", 
+	return fmt.Sprintf("successful: %d, failed: %d, consecutive errors: %d, percentage: %d%% (%s)\n",
 		c.totalSuccessful, c.totalErrors, c.consecutiveErrors, errorPercentage, strings.Join(errorTypes[:], ","))
 }
 

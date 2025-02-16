@@ -342,7 +342,7 @@ func (c *HttpClient) handleMessage(uow PendingRequest) {
 	}
 
 	gologger.Debug().Msgf("URL %s\tStatus: %d\n", uow.Message.Request.URL.String(), uow.Message.Response.StatusCode)
-	gologger.Debug().Msg(c.getErrorSummary())
+	gologger.Debug().Msg(c.GetErrorSummary())
 
 	// Update cookie jar
 	if uow.Options.MaintainCookieJar && uow.Message.Response.Cookies() != nil {
